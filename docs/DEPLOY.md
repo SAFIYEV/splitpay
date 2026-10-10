@@ -19,7 +19,9 @@ Solana (devnet → mainnet) через Helius RPC + Webhooks
 - Instance: `splitpay`, PostgreSQL 16.15, `db.t3.micro`, 20 GB gp3, publicly accessible
 - Security group: `splitpay-rds-sg` (sg-05d30d6c7cf6e5fc7), inbound TCP 5432 с `0.0.0.0/0`
 - Credentials: master user `splitpay`, пароль — в `.env.production.local` (не коммитится)
-- `DATABASE_URL=postgresql://splitpay:PASSWORD@<endpoint>:5432/splitpay?schema=public&sslmode=require`
+- `DATABASE_URL=postgresql://splitpay:PASSWORD@splitpay.cuvkme0m4zr0.us-east-1.rds.amazonaws.com:5432/splitpay?schema=public&sslmode=require`
+- `rds.force_ssl=1` (default parameter group) — без SSL соединение отклоняется (проверено)
+- Миграция `0001_init` уже применена (7 таблиц + `_prisma_migrations` с корректной checksum)
 
 > Render не имеет фиксированных IP, поэтому SG открыт на 0.0.0.0/0 — защита через TLS (`sslmode=require`) + сильный пароль.
 
