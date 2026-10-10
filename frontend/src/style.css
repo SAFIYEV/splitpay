@@ -1,0 +1,39 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-brand-50: #f3efff;
+  --color-brand-100: #e9e2ff;
+  --color-brand-200: #d5c7ff;
+  --color-brand-300: #b9a0ff;
+  --color-brand-400: #9b71fb;
+  --color-brand-500: #7c3aed;
+  --color-brand-600: #6d28d9;
+  --color-brand-700: #5b21b6;
+  --color-brand-800: #4c1d95;
+  --color-brand-900: #3b1678;
+}
+
+:root {
+  --f7-theme-color: #7c3aed;
+  --f7-theme-color-rgb: 124, 58, 237;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+/* Subtle card polish on top of Framework7 */
+.sp-stat-card .card-content {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+/* Balance amount colors */
+.sp-positive {
+  color: var(--f7-color-green, #16a34a);
+}
+.sp-negative {
+  color: var(--f7-color-red, #dc2626);
+}

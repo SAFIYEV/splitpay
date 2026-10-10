@@ -1,0 +1,72 @@
+# Render Blueprint — SplitPay
+# Деплой: Render Dashboard → New → Blueprint → указать репозиторий.
+# БД и Redis НЕ создаются здесь — используем AWS RDS PostgreSQL + ElastiCache Redis.
+# Их URL задаются как env vars (sync: false = ввести вручную в Render Dashboard).
+
+services:
+  # ---------- Backend (NestJS API + WebSocket) ----------
+  - type: web
+    name: splitpay-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      # AWS RDS PostgreSQL endpoint, напр. postgresql://splitpay:PASSWORD@splitpay.xxxx.us-east-1.rds.amazonaws.com:5432/splitpay
+      - key: DATABASE_URL
+        sync: false
+      # AWS ElastiCache Redis endpoint, напр. redis://splitpay.xxxx.cache.amazonaws.com:6379
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: SOLANA_RPC_URL
+        value: https://api.devnet.solana.com
+      - key: SOLANA_NETWORK
+        value: devnet
+      - key: SPLITPAY_PROGRAM_ID
+        sync: false
+      - key: HELIUS_API_KEY
+        sync: false
+      - key: HELIUS_WEBHOOK_SECRET
+        sync: false
+      - key: USDC_MINT
+        value: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU # devnet USDC
+      # CORS — URL фронтенда на Render
+      - key: CORS_ORIGIN
+        sync: false
+
+  # ---------- Frontend (Vue 3 PWA, static) ----------
+  - type: web
+    name: splitpay-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    pullRequestPreviewsEnabled: true
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      # URL backend на Render, напр. https://splitpay-api.onrender.com
+      - key: VITE_API_URL
+        sync: false
+      - key: VITE_WS_URL
+        sync: false
+      - key: VITE_SOLANA_RPC
+        value: https://api.devnet.solana.com
+      - key: VITE_SOLANA_NETWORK
+        value: devnet
+      - key: VITE_SPLITPAY_PROGRAM_ID
+        sync: false

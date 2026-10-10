@@ -49,4 +49,5 @@ npm run dev
 
 - [Техническая спецификация](docs/SPLITPAY_TECH_SPEC.md)
 - [Архитектурные решения](docs/ARCHITECTURE.md)
-- [API схема](docs/api-schema.md)
+- [Деплой в продакшн (Render + AWS)](docs/DEPLOY.md)
+- [Solana program: сборка и деплой](program/README.md)

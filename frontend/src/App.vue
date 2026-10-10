@@ -1,0 +1,51 @@
+<template>
+  <f7-app v-bind="f7params">
+    <f7-view main url="/" :browser-history="true" browser-history-separator="" />
+  </f7-app>
+</template>
+
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted, watch } from 'vue'
+import { f7 } from 'framework7-vue'
+import { useAuthStore } from '@/stores/auth'
+import { useWalletStore } from '@/stores/wallet'
+import { connectWebSocket, disconnectWebSocket } from '@/services/websocket'
+import routes from '@/routes'
+
+const auth = useAuthStore()
+const wallet = useWalletStore()
+
+const f7params = {
+  theme: 'auto' as const, // iOS theme on iPhone, Material on Android (spec 6.4)
+  name: 'SplitPay',
+  id: 'com.splitpay.app',
+  routes,
+  darkMode: 'auto' as const,
+}
+
+function onUnauthorized() {
+  auth.logout()
+  f7.views.main?.router.navigate('/login/')
+}
+
+onMounted(() => {
+  wallet.init()
+  if (auth.isAuthenticated) {
+    void auth.fetchMe().catch(() => {})
+    if (auth.tokens?.accessToken) connectWebSocket(auth.tokens.accessToken)
+  }
+  window.addEventListener('splitpay:unauthorized', onUnauthorized)
+})
+
+watch(
+  () => auth.tokens?.accessToken,
+  (token, previous) => {
+    if (token && token !== previous) connectWebSocket(token)
+    if (!token && previous) disconnectWebSocket()
+  },
+)
+
+onBeforeUnmount(() => {
+  window.removeEventListener('splitpay:unauthorized', onUnauthorized)
+})
+</script>
