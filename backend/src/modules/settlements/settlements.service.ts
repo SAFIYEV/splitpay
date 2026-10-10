@@ -89,12 +89,12 @@ export class SettlementsService {
     return {
       balances: [...balances.entries()].map(([uid, amount]) => ({
         userId: uid,
-        amount: fromMicroUnits(amount),
+        amount: Number(fromMicroUnits(amount)),
       })),
       debts: transfers.map((t) => ({
         fromUserId: t.fromUserId,
         toUserId: t.toUserId,
-        amount: fromMicroUnits(t.amount),
+        amount: Number(fromMicroUnits(t.amount)),
       })),
     };
   }

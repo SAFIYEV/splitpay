@@ -1,8 +1,9 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { DecimalSerializerInterceptor } from './common/decimal-serializer.interceptor';
 import configuration from './config/configuration';
 import { EventsModule } from './common/events/events.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -53,6 +54,7 @@ import { RedisModule } from './redis/redis.module';
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_INTERCEPTOR, useClass: DecimalSerializerInterceptor },
   ],
 })
 export class AppModule {}
