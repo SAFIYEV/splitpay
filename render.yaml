@@ -1,7 +1,7 @@
 # Render Blueprint — SplitPay
 # Деплой: Render Dashboard → New → Blueprint → указать репозиторий.
-# БД и Redis НЕ создаются здесь — используем AWS RDS PostgreSQL + ElastiCache Redis.
-# Их URL задаются как env vars (sync: false = ввести вручную в Render Dashboard).
+# PostgreSQL — AWS RDS (DATABASE_URL вводится вручную в Dashboard).
+# Redis — Render Key Value (см. примечание в docs/DEPLOY.md: ElastiCache недоступен извне VPC).
 
 services:
   # ---------- Backend (NestJS API + WebSocket) ----------
@@ -21,9 +21,12 @@ services:
       # AWS RDS PostgreSQL endpoint, напр. postgresql://splitpay:PASSWORD@splitpay.xxxx.us-east-1.rds.amazonaws.com:5432/splitpay
       - key: DATABASE_URL
         sync: false
-      # AWS ElastiCache Redis endpoint, напр. redis://splitpay.xxxx.cache.amazonaws.com:6379
+      # Render Key Value (Redis) — подключается автоматически
       - key: REDIS_URL
-        sync: false
+        fromService:
+          type: redis
+          name: splitpay-redis
+          property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
@@ -70,3 +73,9 @@ services:
         value: devnet
       - key: VITE_SPLITPAY_PROGRAM_ID
         sync: false
+
+  # ---------- Redis (Render Key Value) ----------
+  - type: redis
+    name: splitpay-redis
+    plan: starter
+    maxmemoryPolicy: noeviction
