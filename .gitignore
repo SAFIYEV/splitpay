@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+**/dist/
+build/
+**/build/
+.next/
+.turbo/
+
+# Solana / Anchor
+program/target/
+program/.anchor/
+program/test-ledger/
+**/*.so
+.anchor/
+
+# Environment
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+!.env.example
+!**/.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test coverage
+coverage/
+**/coverage/
+
+# Prisma
+backend/prisma/migrations/dev.db*
+
+# Keys (Solana keypairs — never commit real ones)
+**/*keypair*.json
+!**/fixtures/**
+
+# Docker volumes
+.docker-data/
