@@ -1,6 +1,12 @@
 <template>
   <f7-app v-bind="f7params">
-    <f7-view main url="/" :browser-history="true" browser-history-separator="" />
+    <!--
+      No browser-history: with browserHistory + asyncComponent, f7-view renders
+      the route's import function as the initial page ("[object Promise]" in
+      the DOM) and the F7 router adopts that placeholder as the current page.
+      In-memory history + the '/' function redirect is the standard PWA setup.
+    -->
+    <f7-view main url="/" />
   </f7-app>
 </template>
 
