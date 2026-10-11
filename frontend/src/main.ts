@@ -17,6 +17,13 @@ const { registerComponents } = f7vueBundle as unknown as {
 
 Framework7.use(Framework7Vue)
 
+// Dev-only: register a mock Wallet Standard wallet when ?mockwallet is in the
+// URL, so the wallet flow is testable without a browser extension. The store
+// picks it up via getWallets().on('register').
+if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('mockwallet')) {
+  void import('@/dev/mock-wallet').then((m) => m.registerMockWallet())
+}
+
 const app = createApp(App)
 app.use(createPinia())
 registerComponents(app)

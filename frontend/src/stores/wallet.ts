@@ -1,5 +1,6 @@
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { getBase58Decoder } from '@solana/kit'
 import {
   base64ToBytes,
   bytesToBase64,
@@ -83,11 +84,12 @@ export const useWalletStore = defineStore('wallet', () => {
     return canSignTransaction(wallet)
   }
 
-  /** Sign the auth challenge message; returns base64 signature for the API. */
+  /** Sign the auth challenge message; returns a base58 signature for the API
+   *  (backend verifies with getBase58Encoder — base64 here is rejected with 401). */
   async function signMessage(message: string): Promise<string> {
     if (!connected.value) throw new Error('No wallet connected')
     const { signature } = await signAuthMessage(connected.value, message)
-    return bytesToBase64(signature)
+    return getBase58Decoder().decode(signature)
   }
 
   /** Sign a backend-prepared base64 transaction; returns base64 signed tx. */
@@ -96,9 +98,6 @@ export const useWalletStore = defineStore('wallet', () => {
     const signed = await signTransactionBytes(connected.value, base64ToBytes(transactionBase64))
     return bytesToBase64(signed)
   }
-
-  // Stop the watcher when the last store subscriber goes away.
-  onUnmounted(dispose)
 
   return {
     wallets,

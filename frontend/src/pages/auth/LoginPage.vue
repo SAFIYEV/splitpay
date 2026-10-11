@@ -77,7 +77,7 @@ const email = ref('')
 const password = ref('')
 const errorText = ref<string | null>(null)
 
-const canSubmit = computed(() => email.value.includes('@') && password.value.length >= 6)
+const canSubmit = computed(() => email.value.includes('@') && password.value.length > 0)
 
 onMounted(() => wallet.refreshWallets())
 

@@ -124,6 +124,8 @@ function confirmLogout() {
 }
 
 onMounted(() => {
+  // Self-heal if the boot-time fetchMe failed (e.g. backend restarting).
+  if (!auth.user) void auth.fetchMe().catch(() => {})
   void notifications.fetchNotifications().catch(() => {})
 })
 </script>

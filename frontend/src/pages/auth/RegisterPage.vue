@@ -28,7 +28,7 @@
         v-model:value="password"
         label="Password"
         type="password"
-        placeholder="At least 6 characters"
+        placeholder="At least 8 characters"
         autocomplete="new-password"
         clear-button
       />
@@ -75,7 +75,7 @@ const canSubmit = computed(
   () =>
     displayName.value.trim().length >= 2 &&
     email.value.includes('@') &&
-    password.value.length >= 6 &&
+    password.value.length >= 8 &&
     !mismatch.value,
 )
 

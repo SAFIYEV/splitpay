@@ -1,7 +1,8 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
-import type { AuthTokens } from '@/types'
+import type { AuthTokens, User } from '@/types'
 
 const TOKEN_STORAGE_KEY = 'splitpay.tokens'
+const PROFILE_STORAGE_KEY = 'splitpay.profile'
 
 /** Token persistence kept outside Pinia so axios interceptors never import stores (no cycles). */
 export const tokenStorage = {
@@ -21,8 +22,30 @@ export const tokenStorage = {
   },
 }
 
+/**
+ * Last known user profile, cached so identity survives a reload even when
+ * /auth/me is briefly unreachable at boot (backend restart, offline).
+ */
+export const profileStorage = {
+  load(): User | null {
+    try {
+      const raw = localStorage.getItem(PROFILE_STORAGE_KEY)
+      return raw ? (JSON.parse(raw) as User) : null
+    } catch {
+      return null
+    }
+  },
+  save(user: User) {
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(user))
+  },
+  clear() {
+    localStorage.removeItem(PROFILE_STORAGE_KEY)
+  },
+}
+
 function notifyUnauthorized() {
   tokenStorage.clear()
+  profileStorage.clear()
   window.dispatchEvent(new CustomEvent('splitpay:unauthorized'))
 }
 
