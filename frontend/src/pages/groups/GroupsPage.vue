@@ -1,5 +1,5 @@
 <template>
-  <f7-page ptr @ptr:refresh="refresh">
+  <f7-page ptr @ptr:refresh="refresh" @page:afterin="onAfterIn">
     <f7-page-content class="pb-32">
       <!-- Header -->
       <div class="flex items-center justify-between px-6 pt-8 pb-4">
@@ -189,6 +189,17 @@ async function refresh(done: () => void) {
   } finally {
     done()
   }
+}
+
+// page:afterin also fires on the initial mount — skip that one (onMounted
+// already loads), reload only when returning to this kept-alive page.
+let firstAfterIn = true
+function onAfterIn() {
+  if (firstAfterIn) {
+    firstAfterIn = false
+    return
+  }
+  void load().catch(() => {})
 }
 
 onMounted(() => {

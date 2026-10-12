@@ -105,7 +105,13 @@ api.interceptors.response.use(
       original.headers.Authorization = `Bearer ${accessToken}`
       return api(original)
     } catch (refreshError) {
-      notifyUnauthorized()
+      // Hard-logout only when the server definitively rejects the refresh token.
+      // Transient failures (backend restart, offline) keep the session — the
+      // next request will retry the refresh.
+      const status = axios.isAxiosError(refreshError) ? refreshError.response?.status : undefined
+      if (status === 400 || status === 401 || status === 403) {
+        notifyUnauthorized()
+      }
       return Promise.reject(refreshError)
     }
   },
@@ -117,7 +123,7 @@ export function apiErrorMessage(error: unknown): string {
     const data = error.response?.data as { message?: string | string[] } | undefined
     if (Array.isArray(data?.message)) return data.message.join(', ')
     if (data?.message) return data.message
-    if (error.code === 'ERR_NETWORK') return 'Cannot reach the server. Check your connection.'
+    if (error.code === 'ERR_NETWORK') return 'Не удалось связаться с сервером. Проверьте соединение.'
     return error.message
   }
   return error instanceof Error ? error.message : 'Unexpected error'

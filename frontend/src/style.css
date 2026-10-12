@@ -44,12 +44,31 @@ body {
 }
 
 /* ---------- Framework7 overrides ---------- */
-/* F7 v9 normalizes plain <button> to width:100%, and the UA stylesheet centers
-   button text — both beat Tailwind's layered utilities. Undo globally; our
-   components size/align themselves explicitly. */
+/* F7 v9 ships an unlayered `button { width: 100% }`, and the UA stylesheet
+   centers button text — unlayered beats Tailwind's layered utilities, so the
+   reset must stay unlayered too. Components size/align themselves explicitly;
+   the width utilities actually used on buttons are restored below. */
 button {
   width: auto;
   text-align: left;
+}
+button.w-full {
+  width: 100%;
+}
+button.w-0 {
+  width: 0;
+}
+button.w-8 {
+  width: 2rem;
+}
+button.w-8\.5 {
+  width: 2.125rem;
+}
+button.w-9 {
+  width: 2.25rem;
+}
+button.w-24 {
+  width: 6rem;
 }
 .navbar {
   --f7-navbar-bg-color: transparent;
@@ -243,19 +262,44 @@ textarea.sp-input::placeholder {
   cursor: pointer;
 }
 
-/* Center the app in a phone-width column on wide screens (mobile PWA design) */
+/* Center the app in a phone-width column on wide screens (mobile PWA design).
+   The lavender page background shows around the column; the view (and with it
+   every absolutely-positioned tab bar / bottom control) stays pinned inside it. */
+body {
+  background: var(--color-lav);
+}
 .view {
-  max-width: 480px;
+  max-width: 430px;
   margin: 0 auto;
   box-shadow: 0 0 40px rgba(109, 91, 226, 0.12);
 }
 .sheet-modal,
 .popup {
-  max-width: 480px;
+  max-width: 430px;
   left: 50%;
   transform: translateX(-50%);
 }
 .sheet-modal.modal-in,
 .popup.modal-in {
   transform: translateX(-50%);
+}
+
+/* Small phones (320–375px): keep forms inside the viewport —
+   amount field + USDC chip and the Расход/Доход/Перевод switcher get tighter. */
+@media (max-width: 375px) {
+  .sp-mode-btn {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    gap: 4px;
+  }
+  .sp-mode-btn-label {
+    font-size: 12px;
+  }
+  .sp-amount-input {
+    font-size: 20px;
+  }
+  input.sp-input,
+  textarea.sp-input {
+    padding: 14px 14px;
+  }
 }

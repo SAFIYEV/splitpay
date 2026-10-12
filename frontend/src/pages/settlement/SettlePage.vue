@@ -72,7 +72,7 @@
               step="0.01"
               min="0"
               placeholder="0.00"
-              class="min-w-0 flex-1 border-0 bg-transparent p-0 text-4xl font-bold outline-none"
+              class="sp-amount-input min-w-0 flex-1 border-0 bg-transparent p-0 text-4xl font-bold outline-none"
             />
             <UsdcChip />
           </div>
@@ -115,8 +115,12 @@
           <span class="text-[15px]" style="color: var(--color-sub)">Комиссия сети</span>
           <span class="flex-1" />
           <span class="text-right">
-            <span class="sp-positive block text-sm font-semibold">~0.000005 SOL</span>
-            <span class="block text-xs" style="color: var(--color-sub)">≈ $0.00</span>
+            <span class="sp-positive block text-sm font-semibold">
+              {{ feeEstimate != null ? `~${feeEstimate.toFixed(6)} SOL` : '…' }}
+            </span>
+            <span class="block text-xs" style="color: var(--color-sub)">
+              оценка по последним блокам Solana
+            </span>
           </span>
         </div>
 
@@ -193,7 +197,7 @@ import type { Router } from 'framework7/types'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import UsdcChip from '@/components/common/UsdcChip.vue'
 import { apiErrorMessage } from '@/services/api'
-import { sendBase64Transaction, SOLANA_NETWORK } from '@/services/solana'
+import { estimateTransferFeeSol, sendBase64Transaction, SOLANA_NETWORK } from '@/services/solana'
 import { formatUsdc, truncateAddress } from '@/services/utils/format'
 import type { ConnectableWallet } from '@/services/wallet-adapter'
 import { useAuthStore } from '@/stores/auth'
@@ -223,6 +227,9 @@ const recipientPopupOpen = ref(false)
 const walletSheetOpen = ref(false)
 
 const success = ref<{ amount: number; toName: string; signature?: string } | null>(null)
+
+/** Network-fee estimate in SOL, derived from recent on-chain prioritization fees. */
+const feeEstimate = ref<number | null>(null)
 
 const group = computed(() =>
   groupsStore.currentGroup?.id === groupId ? groupsStore.currentGroup : null,
@@ -320,8 +327,12 @@ async function recordManually() {
 
 onMounted(() => {
   wallet.refreshWallets()
-  if (!group.value) void groupsStore.fetchGroup(groupId).catch(() => {})
+  // Always revalidate — membership may have changed since the group was cached.
+  void groupsStore.fetchGroup(groupId).catch(() => {})
   void settlementsStore.fetchBalance(groupId).catch(() => {})
+  void estimateTransferFeeSol()
+    .then((fee) => (feeEstimate.value = fee))
+    .catch(() => {})
   if (!toUserId.value) recipientPopupOpen.value = true
 })
 </script>

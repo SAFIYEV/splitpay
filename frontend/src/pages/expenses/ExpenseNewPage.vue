@@ -15,7 +15,7 @@
           v-for="m in modes"
           :key="m.id"
           type="button"
-          class="sp-card-sm flex flex-col items-center gap-2 border-2 py-4"
+          class="sp-mode-btn sp-card-sm flex flex-col items-center gap-2 border-2 py-4"
           :style="mode === m.id ? `border-color: ${m.color}` : 'border-color: transparent'"
           @click="mode = m.id"
         >
@@ -25,7 +25,7 @@
           >
             <f7-icon :f7="m.icon" size="18" />
           </span>
-          <span class="text-[13px] font-semibold" :style="{ color: mode === m.id ? m.color : 'var(--color-sub)' }">
+          <span class="sp-mode-btn-label text-[13px] font-semibold" :style="{ color: mode === m.id ? m.color : 'var(--color-sub)' }">
             {{ m.label }}
           </span>
         </button>
@@ -46,7 +46,7 @@
               step="0.01"
               min="0"
               placeholder="0.00"
-              class="min-w-0 flex-1 border-0 bg-transparent text-2xl font-semibold outline-none"
+              class="sp-amount-input min-w-0 flex-1 border-0 bg-transparent text-2xl font-semibold outline-none"
             />
             <UsdcChip />
           </div>
@@ -109,7 +109,7 @@
               step="0.01"
               min="0"
               placeholder="0.00"
-              class="min-w-0 flex-1 border-0 bg-transparent text-2xl font-semibold outline-none"
+              class="sp-amount-input min-w-0 flex-1 border-0 bg-transparent text-2xl font-semibold outline-none"
             />
             <UsdcChip />
           </div>
@@ -156,7 +156,7 @@
               step="0.01"
               min="0"
               placeholder="0.00"
-              class="min-w-0 flex-1 border-0 bg-transparent text-2xl font-semibold outline-none"
+              class="sp-amount-input min-w-0 flex-1 border-0 bg-transparent text-2xl font-semibold outline-none"
             />
             <UsdcChip />
           </div>

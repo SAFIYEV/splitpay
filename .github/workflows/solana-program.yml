@@ -1,0 +1,78 @@
+# Сборка, тест и деплой Solana-программы SplitPay.
+# Локальная сборка на Windows невозможна (Anchor/Solana toolchain — только Linux),
+# поэтому программа собирается здесь, в CI.
+#
+# Деплой в devnet: запускается вручную (workflow_dispatch) и требует секреты:
+#   SOLANA_DEPLOYER_KEYPAIR — base58 приватного ключа деплоера (solana-keygen new)
+#   HELIUS_API_KEY (опционально — для RPC; иначе public devnet RPC)
+name: solana-program
+
+on:
+  push:
+    paths: ['program/**']
+  workflow_dispatch:
+    inputs:
+      deploy_devnet:
+        description: 'Задеплоить в devnet после сборки'
+        type: boolean
+        default: false
+
+defaults:
+  run:
+    working-directory: program
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: sbf-solana-solana
+
+      - name: Install Solana CLI
+        uses: c-50/solana-action@main
+        with:
+          solana-version: 2.1.21
+
+      - name: Install Anchor CLI
+        uses: c-50/anchor-action@main
+        with:
+          anchor-version: 0.31.1
+
+      - name: Build program
+        run: anchor build
+
+      - name: Sync program keys
+        run: anchor keys sync
+
+      - name: Run tests (local validator)
+        run: anchor test
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: splitpay-program
+          path: |
+            program/target/deploy/*.so
+            program/target/idl/*.json
+            program/target/types/*.ts
+
+      - name: Deploy to devnet
+        if: github.event_name == 'workflow_dispatch' && inputs.deploy_devnet
+        env:
+          SOLANA_DEPLOYER_KEYPAIR: ${{ secrets.SOLANA_DEPLOYER_KEYPAIR }}
+        run: |
+          solana config set --url devnet
+          solana-keygen recover prompt:// <<< "$SOLANA_DEPLOYER_KEYPAIR" --outfile ~/.config/solana/id.json --force
+          solana airdrop 2 || true
+          anchor deploy --provider.cluster devnet
+          echo "Program ID:" && solana address
+        # После деплоя: Program ID внести в env (SPLITPAY_PROGRAM_ID на Render,
+        # VITE_SPLITPAY_PROGRAM_ID для фронтенда) — см. docs/DEPLOY.md

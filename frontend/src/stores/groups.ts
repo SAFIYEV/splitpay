@@ -55,8 +55,9 @@ export const useGroupsStore = defineStore('groups', () => {
   }
 
   async function joinByCode(inviteCode: string, groupId?: string) {
-    // The backend accepts a join by invite code; groupId scopes the URL when known.
-    const url = groupId ? `/groups/${groupId}/join` : '/groups/join'
+    // Backend only exposes POST /groups/:id/join and ignores the id (the
+    // invite code identifies the group) — pass a placeholder when unknown.
+    const url = `/groups/${groupId ?? 'invite'}/join`
     const { data } = await api.post<unknown>(url, { inviteCode })
     const group = normalizeGroup(data)
     upsertGroup(group)

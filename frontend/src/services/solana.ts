@@ -41,6 +41,46 @@ export async function getSolBalance(addr: string): Promise<number> {
   return Number(value) / LAMPORTS_PER_SOL
 }
 
+/** USDC balance in whole USDC units: sums every token account of `addr` for the
+ *  current network's USDC mint. 0 when the wallet has no USDC token account yet. */
+export async function getUsdcBalance(addr: string): Promise<number> {
+  const mint = USDC_MINT[SOLANA_NETWORK]
+  if (!mint) throw new Error(`No USDC mint configured for network "${SOLANA_NETWORK}"`)
+  const { value } = await getRpc()
+    .getTokenAccountsByOwner(toAddress(addr), { mint: toAddress(mint) }, { encoding: 'jsonParsed' })
+    .send()
+  let total = 0
+  for (const { account } of value) {
+    total += account.data.parsed.info.tokenAmount.uiAmount ?? 0
+  }
+  return total
+}
+
+/** Base fee per transaction signature — a Solana protocol constant. */
+const BASE_FEE_LAMPORTS_PER_SIGNATURE = 5_000
+/** Assumed compute units for a plain SPL token transfer without a setComputeUnitLimit ix. */
+const DEFAULT_COMPUTE_UNITS = 200_000
+
+/**
+ * Rough network-fee estimate for a 1-signature USDC transfer, in SOL:
+ * the protocol base fee plus the median prioritization fee observed in recent
+ * blocks (per-CU price × default CU budget). Falls back to the base fee when
+ * the RPC has no recent fee data.
+ */
+export async function estimateTransferFeeSol(): Promise<number> {
+  let priorityMicroLamportsPerCu = 0
+  try {
+    const fees = await getRpc().getRecentPrioritizationFees().send()
+    const sorted = fees.map((f) => Number(f.prioritizationFee)).sort((a, b) => a - b)
+    if (sorted.length > 0) priorityMicroLamportsPerCu = sorted[Math.floor(sorted.length / 2)]!
+  } catch {
+    // No fee data — base fee alone is still a valid floor estimate.
+  }
+  const lamports =
+    BASE_FEE_LAMPORTS_PER_SIGNATURE + (priorityMicroLamportsPerCu * DEFAULT_COMPUTE_UNITS) / 1e6
+  return lamports / LAMPORTS_PER_SOL
+}
+
 /** Devnet-only helper: request an airdrop of `sol` SOL. */
 export async function requestAirdrop(addr: string, sol: number): Promise<Signature> {
   if (SOLANA_NETWORK !== 'devnet') {

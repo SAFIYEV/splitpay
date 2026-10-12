@@ -27,13 +27,17 @@
             <p class="m-0 text-[13px] font-medium" style="color: var(--color-sub)">Кошелёк</p>
             <template v-if="wallet.isConnected">
               <p class="m-0 mt-1 text-xl font-bold">{{ wallet.solBalance?.toFixed(4) ?? '—' }} SOL</p>
+              <p class="m-0 text-sm font-semibold" style="color: var(--color-accent)">
+                {{ wallet.usdcBalance != null ? formatUsdc(wallet.usdcBalance) : '—' }}
+              </p>
               <p class="m-0 text-xs" style="color: var(--color-sub)">
                 {{ truncateAddress(wallet.address ?? '', 6, 6) }} · Solana
               </p>
             </template>
-            <p v-else class="m-0 mt-1 text-[15px] font-semibold" style="color: var(--color-accent)">
-              Подключить кошелёк
-            </p>
+            <template v-else>
+              <p class="m-0 mt-1 text-[15px] font-semibold">Кошелёк не подключён</p>
+              <p class="m-0 text-xs" style="color: var(--color-sub)">Нажмите, чтобы подключить</p>
+            </template>
           </div>
           <span
             class="flex h-11 w-11 items-center justify-center rounded-2xl text-sm font-bold text-white"
@@ -88,7 +92,7 @@ import { f7 } from 'framework7-vue'
 import TabBar from '@/components/layout/TabBar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { apiErrorMessage } from '@/services/api'
-import { truncateAddress } from '@/services/utils/format'
+import { formatUsdc, truncateAddress } from '@/services/utils/format'
 import { disconnectWebSocket } from '@/services/websocket'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'

@@ -32,6 +32,10 @@
             <p class="m-0 mt-1 text-lg font-bold">{{ wallet.solBalance?.toFixed(4) ?? '—' }}</p>
           </div>
           <div class="sp-card-sm p-4">
+            <p class="m-0 text-xs font-medium" style="color: var(--color-sub)">Баланс USDC</p>
+            <p class="m-0 mt-1 text-lg font-bold">{{ wallet.usdcBalance?.toFixed(2) ?? '—' }}</p>
+          </div>
+          <div class="sp-card-sm col-span-2 p-4">
             <p class="m-0 text-xs font-medium" style="color: var(--color-sub)">Сеть</p>
             <p class="m-0 mt-1 text-lg font-bold">{{ network }}</p>
           </div>

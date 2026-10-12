@@ -15,7 +15,7 @@ import {
   type ConnectedWallet,
   type ConnectableWallet,
 } from '@/services/wallet-adapter'
-import { getSolBalance } from '@/services/solana'
+import { getSolBalance, getUsdcBalance } from '@/services/solana'
 
 // Solana wallet state. Targets Phantom / Solflare / Backpack via Wallet Standard.
 // On desktop browsers without an extension, `wallets` is simply empty and the
@@ -25,6 +25,7 @@ export const useWalletStore = defineStore('wallet', () => {
   const wallets = ref<ConnectableWallet[]>([])
   const connected = ref<ConnectedWallet | null>(null)
   const solBalance = ref<number | null>(null)
+  const usdcBalance = ref<number | null>(null)
   const connecting = ref(false)
   const error = ref<string | null>(null)
 
@@ -56,7 +57,9 @@ export const useWalletStore = defineStore('wallet', () => {
     error.value = null
     try {
       connected.value = await connectWallet(wallet)
-      await refreshBalance()
+      // A failing RPC must not fail the connect itself — balances can be
+      // refreshed manually from the wallet page.
+      await refreshBalance().catch(() => {})
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Wallet connection was rejected'
       throw e
@@ -69,11 +72,19 @@ export const useWalletStore = defineStore('wallet', () => {
     if (connected.value) await disconnectWallet(connected.value.wallet)
     connected.value = null
     solBalance.value = null
+    usdcBalance.value = null
   }
 
   async function refreshBalance() {
     if (!address.value) return
-    solBalance.value = await getSolBalance(address.value)
+    const addr = address.value
+    const [sol, usdc] = await Promise.all([
+      getSolBalance(addr),
+      // No USDC token account yet → treat as 0 rather than failing the refresh.
+      getUsdcBalance(addr).catch(() => null),
+    ])
+    solBalance.value = sol
+    usdcBalance.value = usdc
   }
 
   function walletSupportsSignMessage(wallet: ConnectableWallet) {
@@ -103,6 +114,7 @@ export const useWalletStore = defineStore('wallet', () => {
     wallets,
     connected,
     solBalance,
+    usdcBalance,
     connecting,
     error,
     address,

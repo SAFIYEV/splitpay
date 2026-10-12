@@ -242,7 +242,8 @@ async function refresh(done: () => void) {
 }
 
 onMounted(() => {
-  if (!group.value) void groupsStore.fetchGroup(groupId).catch(() => {})
+  // Always revalidate — membership may have changed since the group was cached.
+  void groupsStore.fetchGroup(groupId).catch(() => {})
   void load()
 })
 </script>
