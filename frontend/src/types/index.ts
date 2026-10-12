@@ -1,4 +1,6 @@
-// Shared domain types, mirroring the backend models (spec sections 3.1 / 4.1).
+// Shared domain types. These describe the NORMALIZED shapes used across the UI —
+// services/normalize.ts maps raw backend payloads (Prisma Decimals as strings,
+// paidById/user-object relations, top-level inviteCode) into these.
 
 export interface User {
   id: string
@@ -38,14 +40,13 @@ export interface Group {
   description?: string
   photo?: string
   currency: string
+  inviteCode?: string
+  splitMethod?: SplitMethod
   members: GroupMember[]
+  /** Total spent across all expenses, in USDC. */
   totalSpent: number
   status: 'active' | 'archived'
   solanaGroupPDA?: string
-  metadata?: {
-    inviteCode?: string
-    splitMethod?: SplitMethod
-  }
   createdAt?: string
   updatedAt?: string
 }
@@ -67,6 +68,7 @@ export interface ExpenseSplit {
 export interface Expense {
   id: string
   groupId: string
+  /** User id of the payer. */
   paidBy: string
   paidByUser?: User
   amount: number
@@ -98,8 +100,10 @@ export type SettlementStatus =
 export interface Settlement {
   id: string
   groupId: string
+  /** User id of the payer. */
   fromUser: string
   fromUserData?: User
+  /** User id of the recipient. */
   toUser: string
   toUserData?: User
   amount: number

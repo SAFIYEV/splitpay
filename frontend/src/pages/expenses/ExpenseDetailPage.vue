@@ -1,77 +1,89 @@
 <template>
   <f7-page>
-    <f7-navbar title="Expense" back-link="Expenses">
-      <template #right>
-        <f7-link
+    <f7-page-content class="pb-10">
+      <div class="flex items-center justify-between px-5 pt-6 pb-2">
+        <button type="button" class="sp-icon-btn" @click="back">
+          <f7-icon f7="chevron_left" size="20" />
+        </button>
+        <h1 class="m-0 text-lg font-bold">Расход</h1>
+        <button
           v-if="expense"
-          icon-f7="pencil"
-          icon-material="edit"
-          :href="`/groups/${groupId}/expenses/new/?edit=${expense.id}`"
-        />
-      </template>
-    </f7-navbar>
+          type="button"
+          class="sp-icon-btn"
+          style="color: var(--color-accent)"
+          @click="go(`/groups/${groupId}/expenses/new/?edit=${expense.id}`)"
+        >
+          <f7-icon f7="pencil" size="17" />
+        </button>
+        <div v-else class="w-10" />
+      </div>
 
-    <template v-if="expense">
-      <f7-card class="mx-4 mt-4">
-        <f7-card-content class="flex flex-col items-center py-6 text-center">
-          <div
-            class="mb-3 flex h-14 w-14 items-center justify-center rounded-full"
-            :style="{ backgroundColor: `${meta.color}22`, color: meta.color }"
-          >
-            <f7-icon :f7="meta.f7Icon" :material="meta.materialIcon" size="28" />
+      <template v-if="expense">
+        <div class="mt-4 px-6">
+          <div class="sp-card flex flex-col items-center p-6 text-center">
+            <span
+              class="mb-3 flex h-14 w-14 items-center justify-center rounded-full"
+              :style="{ backgroundColor: `${meta.color}1a`, color: meta.color }"
+            >
+              <f7-icon :f7="meta.f7Icon" size="26" />
+            </span>
+            <p class="m-0 text-3xl font-bold">{{ formatUsdc(expense.amount) }}</p>
+            <p class="mt-1 mb-0 text-[17px] font-semibold">{{ expense.description }}</p>
+            <p class="mt-1 mb-0 text-sm" style="color: var(--color-sub)">
+              {{ meta.labelRu }} · {{ formatDateTimeRu(expense.date) }}
+            </p>
           </div>
-          <p class="m-0 text-3xl font-bold">{{ formatUsdc(expense.amount) }}</p>
-          <p class="mt-1 mb-0 text-lg">{{ expense.description }}</p>
-          <p class="mt-1 mb-0 text-sm opacity-60">
-            {{ meta.label }} · {{ formatDateTime(expense.date) }}
-          </p>
-        </f7-card-content>
-      </f7-card>
+        </div>
 
-      <f7-block-title>Paid by</f7-block-title>
-      <f7-list strong inset>
-        <f7-list-item :title="displayName(expense.paidBy)" :after="formatUsdc(expense.amount)">
-          <template #media>
-            <UserAvatar :name="displayName(expense.paidBy)" :size="36" />
-          </template>
-        </f7-list-item>
-      </f7-list>
+        <div class="mt-5 px-6">
+          <p class="sp-label">Оплатил</p>
+          <div class="sp-card-sm flex items-center gap-3 p-4">
+            <UserAvatar :name="displayName(expense.paidBy)" :size="38" />
+            <span class="flex-1 font-semibold">{{ displayName(expense.paidBy) }}</span>
+            <span class="font-bold">{{ formatUsdc(expense.amount) }}</span>
+          </div>
+        </div>
 
-      <f7-block-title>Split between {{ expense.splits.length }}</f7-block-title>
-      <f7-list strong inset dividers>
-        <f7-list-item
-          v-for="split in expense.splits"
-          :key="split.userId"
-          :title="displayName(split.userId)"
-          :after="formatUsdc(split.amount)"
-        >
-          <template #media>
-            <UserAvatar :name="displayName(split.userId)" :size="36" />
-          </template>
-          <template v-if="split.percentage != null" #subtitle>{{ split.percentage }}%</template>
-        </f7-list-item>
-      </f7-list>
+        <div class="mt-5 px-6">
+          <p class="sp-label">Разделён между {{ expense.splits.length }}</p>
+          <div
+            v-for="split in expense.splits"
+            :key="split.userId"
+            class="sp-card-sm mb-2.5 flex items-center gap-3 p-4"
+          >
+            <UserAvatar :name="displayName(split.userId)" :size="38" />
+            <span class="flex-1 font-semibold">{{ displayName(split.userId) }}</span>
+            <span class="font-semibold">{{ formatUsdc(split.amount) }}</span>
+          </div>
+        </div>
 
-      <f7-block v-if="expense.solanaExpensePDA" class="text-sm opacity-60">
-        On-chain record:
-        <a
-          class="break-all text-brand-500"
-          :href="`https://explorer.solana.com/address/${expense.solanaExpensePDA}?cluster=${solanaNetwork}`"
-          target="_blank"
-          rel="noopener"
-        >
-          {{ truncateAddress(expense.solanaExpensePDA, 8, 8) }}
-        </a>
-      </f7-block>
+        <div v-if="expense.solanaExpensePDA" class="mt-4 px-6 text-center text-xs" style="color: var(--color-sub)">
+          On-chain запись:
+          <a
+            class="break-all"
+            style="color: var(--color-accent)"
+            :href="`https://explorer.solana.com/address/${expense.solanaExpensePDA}?cluster=${network}`"
+            target="_blank"
+            rel="noopener"
+          >{{ truncateAddress(expense.solanaExpensePDA, 8, 8) }}</a>
+        </div>
 
-      <f7-block v-if="canDelete">
-        <f7-button large outline round color="red" @click="confirmDelete">Delete expense</f7-button>
-      </f7-block>
-    </template>
+        <div v-if="canDelete" class="mt-6 px-6">
+          <button
+            type="button"
+            class="w-full rounded-[18px] border-0 py-4 text-[16px] font-semibold"
+            style="background: #ffeef3; color: var(--color-rose)"
+            @click="confirmDelete"
+          >
+            Удалить расход
+          </button>
+        </div>
+      </template>
 
-    <f7-block v-else class="flex justify-center py-16">
-      <f7-preloader />
-    </f7-block>
+      <div v-else class="flex justify-center py-20">
+        <f7-preloader />
+      </div>
+    </f7-page-content>
   </f7-page>
 </template>
 
@@ -83,7 +95,7 @@ import UserAvatar from '@/components/common/UserAvatar.vue'
 import { categoryMeta } from '@/composables/categories'
 import { apiErrorMessage } from '@/services/api'
 import { SOLANA_NETWORK } from '@/services/solana'
-import { formatDateTime, formatUsdc, truncateAddress } from '@/services/utils/format'
+import { formatDateTimeRu, formatUsdc, truncateAddress } from '@/services/utils/format'
 import { useAuthStore } from '@/stores/auth'
 import { useExpensesStore } from '@/stores/expenses'
 import { useGroupsStore } from '@/stores/groups'
@@ -100,7 +112,7 @@ const expensesStore = useExpensesStore()
 
 const groupId = props.f7route.params.id
 const expenseId = props.f7route.params.eid
-const solanaNetwork = SOLANA_NETWORK
+const network = SOLANA_NETWORK
 
 const expense = ref<Expense | null>(
   expensesStore.expensesFor(groupId).find((e) => e.id === expenseId) ?? null,
@@ -121,14 +133,22 @@ function displayName(userId: string) {
   return groupsStore.memberName(group.value, userId)
 }
 
+function go(url: string) {
+  f7.views.main.router.navigate(url)
+}
+
+function back() {
+  props.f7router.back()
+}
+
 function confirmDelete() {
-  f7.dialog.confirm('Delete this expense? This cannot be undone.', 'Delete expense', async () => {
+  f7.dialog.confirm('Удалить этот расход? Это действие нельзя отменить.', 'Удалить расход', async () => {
     try {
       await expensesStore.deleteExpense(groupId, expenseId)
-      f7.toast.create({ text: 'Expense deleted', position: 'center', closeTimeout: 1500 }).open()
+      f7.toast.create({ text: 'Расход удалён', position: 'center', closeTimeout: 1500 }).open()
       props.f7router.back()
     } catch (e) {
-      f7.dialog.alert(apiErrorMessage(e), 'Could not delete')
+      f7.dialog.alert(apiErrorMessage(e), 'Не удалось удалить')
     }
   })
 }

@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { api } from '@/services/api'
+import { normalizeArray, normalizeNotification } from '@/services/normalize'
 import type { NotificationItem } from '@/types'
 
 export const useNotificationsStore = defineStore('notifications', () => {
@@ -12,8 +13,8 @@ export const useNotificationsStore = defineStore('notifications', () => {
   async function fetchNotifications() {
     loading.value = true
     try {
-      const { data } = await api.get<NotificationItem[]>('/notifications')
-      items.value = data
+      const { data } = await api.get<unknown>('/notifications')
+      items.value = normalizeArray(data, normalizeNotification)
     } finally {
       loading.value = false
     }

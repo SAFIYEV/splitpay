@@ -117,6 +117,42 @@ const routes: Router.RouteParameters[] = [
     beforeEnter: requireAuth,
   },
   {
+    path: '/profile/security/',
+    asyncComponent: () => import('@/pages/profile/StubPage.vue'),
+    beforeEnter: requireAuth,
+    options: {
+      props: {
+        title: 'Безопасность',
+        text: 'Двухфакторная защита и управление сессиями скоро появятся.',
+        icon: 'shield_check',
+      },
+    },
+  },
+  {
+    path: '/profile/help/',
+    asyncComponent: () => import('@/pages/profile/StubPage.vue'),
+    beforeEnter: requireAuth,
+    options: {
+      props: {
+        title: 'Помощь и поддержка',
+        text: 'Частые вопросы и чат поддержки скоро появятся.',
+        icon: 'questionmark_circle',
+      },
+    },
+  },
+  {
+    path: '/profile/about/',
+    asyncComponent: () => import('@/pages/profile/StubPage.vue'),
+    beforeEnter: requireAuth,
+    options: {
+      props: {
+        title: 'О приложении',
+        text: 'SplitPay · расчёты в USDC на Solana · версия 0.1 (devnet)',
+        icon: 'info_circle',
+      },
+    },
+  },
+  {
     path: '/activity/',
     asyncComponent: () => import('@/pages/ActivityPage.vue'),
     beforeEnter: requireAuth,

@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { api } from '@/services/api'
+import { normalizeArray, normalizeGroup } from '@/services/normalize'
 import type { Group, SplitMethod } from '@/types'
 
 export const useGroupsStore = defineStore('groups', () => {
@@ -13,18 +14,19 @@ export const useGroupsStore = defineStore('groups', () => {
   async function fetchGroups() {
     loading.value = true
     try {
-      const { data } = await api.get<Group[]>('/groups')
-      groups.value = data
+      const { data } = await api.get<unknown>('/groups')
+      groups.value = normalizeArray(data, normalizeGroup)
     } finally {
       loading.value = false
     }
   }
 
   async function fetchGroup(id: string): Promise<Group> {
-    const { data } = await api.get<Group>(`/groups/${id}`)
-    currentGroup.value = data
-    upsertGroup(data)
-    return data
+    const { data } = await api.get<unknown>(`/groups/${id}`)
+    const group = normalizeGroup(data)
+    currentGroup.value = group
+    upsertGroup(group)
+    return group
   }
 
   async function createGroup(input: {
@@ -32,16 +34,18 @@ export const useGroupsStore = defineStore('groups', () => {
     description?: string
     splitMethod?: SplitMethod
   }): Promise<Group> {
-    const { data } = await api.post<Group>('/groups', input)
-    upsertGroup(data)
-    return data
+    const { data } = await api.post<unknown>('/groups', input)
+    const group = normalizeGroup(data)
+    upsertGroup(group)
+    return group
   }
 
   async function updateGroup(id: string, patch: Partial<Pick<Group, 'name' | 'description' | 'status'>>) {
-    const { data } = await api.patch<Group>(`/groups/${id}`, patch)
-    upsertGroup(data)
-    if (currentGroup.value?.id === id) currentGroup.value = data
-    return data
+    const { data } = await api.patch<unknown>(`/groups/${id}`, patch)
+    const group = normalizeGroup(data)
+    upsertGroup(group)
+    if (currentGroup.value?.id === id) currentGroup.value = group
+    return group
   }
 
   async function deleteGroup(id: string) {
@@ -53,9 +57,10 @@ export const useGroupsStore = defineStore('groups', () => {
   async function joinByCode(inviteCode: string, groupId?: string) {
     // The backend accepts a join by invite code; groupId scopes the URL when known.
     const url = groupId ? `/groups/${groupId}/join` : '/groups/join'
-    const { data } = await api.post<Group>(url, { inviteCode })
-    upsertGroup(data)
-    return data
+    const { data } = await api.post<unknown>(url, { inviteCode })
+    const group = normalizeGroup(data)
+    upsertGroup(group)
+    return group
   }
 
   async function leaveGroup(id: string) {
@@ -75,16 +80,16 @@ export const useGroupsStore = defineStore('groups', () => {
   }
 
   async function regenerateInvite(id: string): Promise<string | undefined> {
-    const { data } = await api.post<Group | { inviteCode: string }>(`/groups/${id}/invite`)
-    if ('inviteCode' in data && data.inviteCode && currentGroup.value?.id === id) {
-      currentGroup.value = {
-        ...currentGroup.value,
-        metadata: { ...currentGroup.value.metadata, inviteCode: data.inviteCode },
-      }
-      return data.inviteCode
+    const { data } = await api.post<unknown>(`/groups/${id}/invite`)
+    const code =
+      (data as { inviteCode?: string })?.inviteCode ??
+      normalizeGroup(data).inviteCode
+    if (code && currentGroup.value?.id === id) {
+      currentGroup.value = { ...currentGroup.value, inviteCode: code }
+      const idx = groups.value.findIndex((g) => g.id === id)
+      if (idx >= 0) groups.value[idx] = { ...groups.value[idx]!, inviteCode: code }
     }
-    if ('id' in data) upsertGroup(data)
-    return undefined
+    return code
   }
 
   function upsertGroup(group: Group) {

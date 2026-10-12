@@ -1,21 +1,33 @@
 @import 'tailwindcss';
 
 @theme {
+  --color-lav: #f4f2fb;
+  --color-accent: #6d5be2;
+  --color-accent-2: #9d7bfa;
+  --color-accent-soft: #efecff;
+  --color-mint: #34c77b;
+  --color-rose: #f2507b;
+  --color-ink: #1b1b2f;
+  --color-sub: #8a8aa3;
   --color-brand-50: #f3efff;
   --color-brand-100: #e9e2ff;
   --color-brand-200: #d5c7ff;
   --color-brand-300: #b9a0ff;
   --color-brand-400: #9b71fb;
-  --color-brand-500: #7c3aed;
-  --color-brand-600: #6d28d9;
+  --color-brand-500: #7c6cf0;
+  --color-brand-600: #6d5be2;
   --color-brand-700: #5b21b6;
   --color-brand-800: #4c1d95;
   --color-brand-900: #3b1678;
 }
 
 :root {
-  --f7-theme-color: #7c3aed;
-  --f7-theme-color-rgb: 124, 58, 237;
+  --f7-theme-color: #6d5be2;
+  --f7-theme-color-rgb: 109, 91, 226;
+  --f7-page-bg-color: #f4f2fb;
+  --f7-bars-bg-color: transparent;
+  --f7-navbar-bg-color: transparent;
+  --f7-toolbar-bg-color: #ffffff;
 }
 
 html,
@@ -24,16 +36,226 @@ body,
   height: 100%;
 }
 
-/* Subtle card polish on top of Framework7 */
-.sp-stat-card .card-content {
-  padding-top: 14px;
-  padding-bottom: 14px;
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  color: var(--color-ink);
 }
 
-/* Balance amount colors */
+/* ---------- Framework7 overrides ---------- */
+/* F7 v9 normalizes plain <button> to width:100%, and the UA stylesheet centers
+   button text — both beat Tailwind's layered utilities. Undo globally; our
+   components size/align themselves explicitly. */
+button {
+  width: auto;
+  text-align: left;
+}
+.navbar {
+  --f7-navbar-bg-color: transparent;
+  --f7-navbar-border-color: transparent;
+}
+.navbar-bg {
+  background: transparent;
+}
+.navbar::after {
+  display: none;
+}
+.page {
+  background: var(--color-lav);
+}
+.toolbar::before,
+.list::before,
+.list::after,
+.list ul::before,
+.list ul::after {
+  display: none;
+}
+
+/* ---------- Design system primitives ---------- */
+
+/* White card, 24px radius, soft diffuse shadow */
+.sp-card {
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 12px 32px rgba(109, 91, 226, 0.08);
+}
+
+.sp-card-sm {
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(109, 91, 226, 0.06);
+}
+
+/* Primary gradient button */
+.sp-btn-gradient {
+  background: linear-gradient(135deg, #7c6cf0 0%, #9d7bfa 100%);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 18px;
+  padding: 16px 24px;
+  text-align: center;
+  box-shadow: 0 10px 24px rgba(124, 108, 240, 0.35);
+  transition:
+    transform 0.12s ease,
+    opacity 0.12s ease;
+  user-select: none;
+  cursor: pointer;
+  border: none;
+  width: 100%;
+  display: block;
+  font-size: 16px;
+}
+.sp-btn-gradient:active {
+  transform: scale(0.98);
+}
+.sp-btn-gradient[disabled],
+.sp-btn-gradient.sp-disabled {
+  opacity: 0.45;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+/* Soft lavender button */
+.sp-btn-soft {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-weight: 600;
+  border-radius: 14px;
+  padding: 12px 20px;
+  text-align: center;
+  border: none;
+  cursor: pointer;
+  user-select: none;
+  display: block;
+  width: 100%;
+  font-size: 15px;
+  transition: transform 0.12s ease;
+}
+.sp-btn-soft:active {
+  transform: scale(0.98);
+}
+
+/* Text input — light lavender fill, readable on white cards and lavender pages.
+   NOTE: F7 resets input[type=...] with specificity 0-1-1, so this selector must
+   be input-level too (0-1-1, and our stylesheet loads after F7's). */
+input.sp-input,
+textarea.sp-input {
+  background: #f1eefb;
+  border-radius: 16px;
+  padding: 16px 18px;
+  width: 100%;
+  border: 1.5px solid #e6e2f6;
+  outline: none;
+  font-size: 16px;
+  color: var(--color-ink);
+  box-shadow: 0 6px 18px rgba(109, 91, 226, 0.05);
+}
+input.sp-input:focus,
+textarea.sp-input:focus {
+  border-color: var(--color-accent-2);
+}
+input.sp-input::placeholder,
+textarea.sp-input::placeholder {
+  color: #b6b6cc;
+}
+
+.sp-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-sub);
+  margin: 0 4px 8px;
+}
+
+/* USDC chip: blue circle-$ + label */
+.sp-usdc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--color-ink);
+  font-size: 15px;
+}
+.sp-usdc-chip .sp-usdc-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: #2775ca;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Amount colors */
 .sp-positive {
-  color: var(--f7-color-green, #16a34a);
+  color: var(--color-mint);
 }
 .sp-negative {
-  color: var(--f7-color-red, #dc2626);
+  color: var(--color-rose);
+}
+
+/* Decorative background blobs (auth screens) */
+.sp-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* Sheet-style page header (close X) */
+.sp-close-x {
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--color-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(109, 91, 226, 0.1);
+  border: none;
+  cursor: pointer;
+  font-size: 17px;
+}
+
+/* Segmented-control buttons need centered text (unlayered, beats the button reset above) */
+.sp-seg-btn {
+  text-align: center;
+}
+
+/* Round icon button (back arrows etc.) */
+.sp-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--color-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(109, 91, 226, 0.1);
+  border: none;
+  cursor: pointer;
+}
+
+/* Center the app in a phone-width column on wide screens (mobile PWA design) */
+.view {
+  max-width: 480px;
+  margin: 0 auto;
+  box-shadow: 0 0 40px rgba(109, 91, 226, 0.12);
+}
+.sheet-modal,
+.popup {
+  max-width: 480px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.sheet-modal.modal-in,
+.popup.modal-in {
+  transform: translateX(-50%);
 }

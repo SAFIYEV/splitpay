@@ -1,64 +1,133 @@
 <template>
   <f7-page>
-    <f7-navbar title="Sign in" />
+    <f7-page-content class="relative overflow-hidden">
+      <!-- decorative blobs -->
+      <div class="sp-blob" style="width: 260px; height: 260px; background: #d9d0ff; top: -70px; left: -60px" />
+      <div class="sp-blob" style="width: 220px; height: 220px; background: #d3f5e5; bottom: 10%; right: -80px" />
 
-    <f7-block class="mb-2 flex flex-col items-center text-center">
-      <div class="mb-3 flex h-20 w-20 items-center justify-center rounded-3xl bg-brand-500 shadow-lg">
-        <f7-icon f7="creditcard_fill" material="payments" size="40" color="white" />
+      <div class="relative z-10 flex min-h-full flex-col px-6 pt-16 pb-8">
+        <!-- Logo -->
+        <div class="mb-8 flex flex-col items-center text-center">
+          <div
+            class="mb-4 flex h-20 w-20 items-center justify-center rounded-[22px] text-4xl font-bold text-white"
+            style="background: linear-gradient(135deg, #7c6cf0 0%, #9d7bfa 100%); box-shadow: 0 14px 30px rgba(124, 108, 240, 0.4)"
+          >
+            S
+          </div>
+          <h1 class="m-0 text-3xl font-bold" style="color: var(--color-accent)">SplitPay</h1>
+          <p class="mt-2 mb-0 text-[15px] leading-snug" style="color: var(--color-sub)">
+            Делите расходы легко.<br />Оплачивайте в USDC на Solana.
+          </p>
+        </div>
+
+        <!-- Card -->
+        <div class="sp-card p-6">
+          <h2 class="m-0 mb-5 text-center text-lg font-bold">Войти в аккаунт</h2>
+
+          <label class="sp-label">Email</label>
+          <input
+            v-model="email"
+            type="email"
+            class="sp-input mb-4"
+            placeholder="Введите email"
+            autocomplete="email"
+          />
+
+          <label class="sp-label">Пароль</label>
+          <div style="position: relative" class="mb-2">
+            <input
+              v-model="password"
+              :type="showPassword ? 'text' : 'password'"
+              class="sp-input"
+              style="padding-right: 48px"
+              placeholder="Введите пароль"
+              autocomplete="current-password"
+            />
+            <button
+              type="button"
+              class="border-0 bg-transparent p-0"
+              style="position: absolute; top: 50%; right: 16px; transform: translateY(-50%); color: var(--color-sub)"
+              @click="showPassword = !showPassword"
+            >
+              <f7-icon :f7="showPassword ? 'eye_slash' : 'eye'" size="20" />
+            </button>
+          </div>
+
+          <div class="mb-5 text-right">
+            <button type="button" class="border-0 bg-transparent p-0 text-sm font-medium" style="color: var(--color-accent)" @click="forgotPassword">
+              Забыли пароль?
+            </button>
+          </div>
+
+          <button
+            type="button"
+            class="sp-btn-gradient"
+            :disabled="!canSubmit || auth.loading"
+            @click="submit"
+          >
+            {{ auth.loading ? 'Входим…' : 'Войти' }}
+          </button>
+
+          <p v-if="errorText" class="mt-3 mb-0 text-center text-sm" style="color: var(--color-rose)">
+            {{ errorText }}
+          </p>
+
+          <div class="my-5 flex items-center gap-3">
+            <div class="h-px flex-1" style="background: #e6e4f2" />
+            <span class="text-xs" style="color: var(--color-sub)">или</span>
+            <div class="h-px flex-1" style="background: #e6e4f2" />
+          </div>
+
+          <button type="button" class="sp-btn-soft flex items-center justify-center gap-2" @click="walletSheetOpen = true">
+            <span
+              class="inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold text-white"
+              style="background: linear-gradient(135deg, #9945ff, #14f195)"
+            >◎</span>
+            Войти через Solana
+          </button>
+        </div>
+
+        <p class="mt-6 mb-0 text-center text-sm" style="color: var(--color-sub)">
+          Нет аккаунта?
+          <f7-link href="/register/" class="font-semibold" style="--f7-link-color: var(--color-accent)">
+            Зарегистрируйтесь
+          </f7-link>
+        </p>
       </div>
-      <h1 class="m-0 text-2xl font-bold">SplitPay</h1>
-      <p class="mt-1 mb-0 opacity-60">Split expenses. Settle in USDC on Solana.</p>
-    </f7-block>
 
-    <f7-list strong inset dividers form @submit.prevent>
-      <f7-list-input
-        v-model:value="email"
-        label="Email"
-        type="email"
-        placeholder="you@example.com"
-        autocomplete="email"
-        clear-button
-      />
-      <f7-list-input
-        v-model:value="password"
-        label="Password"
-        type="password"
-        placeholder="Your password"
-        autocomplete="current-password"
-        clear-button
-      />
-    </f7-list>
+      <!-- Wallet picker sheet -->
+      <f7-sheet v-model:opened="walletSheetOpen" class="sp-sheet" style="height: auto; --f7-sheet-border-radius: 28px">
+        <div class="px-6 pt-4 pb-8">
+          <div class="mx-auto mb-4 h-1 w-10 rounded-full" style="background: #e6e4f2" />
+          <h3 class="m-0 mb-1 text-center text-lg font-bold">Войти через Solana</h3>
+          <p class="mt-0 mb-4 text-center text-sm" style="color: var(--color-sub)">
+            Подписываем сообщение в кошельке — без пароля
+          </p>
 
-    <f7-block class="mt-4">
-      <f7-button large fill round preloader :loading="auth.loading" :disabled="!canSubmit" @click="submit">
-        Sign in
-      </f7-button>
-      <p v-if="errorText" class="mt-3 mb-0 text-center text-sm text-red-500">{{ errorText }}</p>
-      <p class="mt-4 mb-0 text-center text-sm opacity-70">
-        New to SplitPay?
-        <f7-link href="/register/" class="font-semibold">Create an account</f7-link>
-      </p>
-    </f7-block>
+          <template v-if="wallet.wallets.length > 0">
+            <button
+              v-for="w in wallet.wallets"
+              :key="w.name"
+              type="button"
+              class="sp-card-sm mb-3 flex w-full items-center gap-3 border-0 p-4 text-left"
+              :disabled="wallet.connecting"
+              @click="connectWith(w)"
+            >
+              <img :src="w.icon" :alt="w.name" class="h-10 w-10 rounded-xl" />
+              <span class="flex-1 font-semibold">{{ w.name }}</span>
+              <f7-icon f7="chevron_right" size="16" style="color: var(--color-sub)" />
+            </button>
+          </template>
+          <p v-else class="my-4 text-center text-sm" style="color: var(--color-sub)">
+            Кошелёк не обнаружен.<br />Установите Phantom, Solflare или Backpack и обновите страницу.
+          </p>
 
-    <f7-block-title>Or continue with a wallet</f7-block-title>
-    <f7-list v-if="wallet.wallets.length > 0" strong inset>
-      <f7-list-item
-        v-for="w in wallet.wallets"
-        :key="w.name"
-        link
-        :title="w.name"
-        :disabled="wallet.connecting"
-        @click="connectWith(w)"
-      >
-        <template #media>
-          <img :src="w.icon" :alt="w.name" class="h-8 w-8 rounded-lg" />
-        </template>
-      </f7-list-item>
-    </f7-list>
-    <f7-block v-else class="mt-2 text-sm opacity-60">
-      No Solana wallet detected. Install Phantom, Solflare or Backpack to sign in with a wallet —
-      or use email above.
-    </f7-block>
+          <p v-if="walletError" class="mt-2 mb-0 text-center text-sm" style="color: var(--color-rose)">
+            {{ walletError }}
+          </p>
+        </div>
+      </f7-sheet>
+    </f7-page-content>
   </f7-page>
 </template>
 
@@ -75,7 +144,10 @@ const wallet = useWalletStore()
 
 const email = ref('')
 const password = ref('')
+const showPassword = ref(false)
 const errorText = ref<string | null>(null)
+const walletSheetOpen = ref(false)
+const walletError = ref<string | null>(null)
 
 const canSubmit = computed(() => email.value.includes('@') && password.value.length > 0)
 
@@ -91,19 +163,24 @@ async function submit() {
   }
 }
 
+function forgotPassword() {
+  f7.dialog.alert('Ссылка для сброса пароля будет отправлена на ваш email.', 'Забыли пароль?')
+}
+
 /** Wallet auth flow: connect → challenge → sign → verify (spec 8.1). */
 async function connectWith(w: ConnectableWallet) {
-  errorText.value = null
+  walletError.value = null
   try {
     await wallet.connect(w)
     const address = wallet.address
-    if (!address) throw new Error('Wallet did not return an address')
+    if (!address) throw new Error('Кошелёк не вернул адрес')
     const { message } = await auth.walletChallenge(address)
     const signature = await wallet.signMessage(message)
     await auth.walletVerify(address, signature)
+    walletSheetOpen.value = false
     f7.views.main.router.navigate('/groups/', { clearPreviousHistory: true })
   } catch (e) {
-    errorText.value = apiErrorMessage(e)
+    walletError.value = apiErrorMessage(e)
     await wallet.disconnect().catch(() => {})
   }
 }

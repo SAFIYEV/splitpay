@@ -1,93 +1,140 @@
 <template>
   <f7-page ptr @ptr:refresh="refresh">
-    <f7-navbar title="Balances" back-link="Back" />
+    <f7-page-content class="pb-28">
+      <!-- Header -->
+      <div class="flex items-center justify-between px-5 pt-6 pb-2">
+        <button type="button" class="sp-icon-btn" @click="go(`/groups/${groupId}/`)">
+          <f7-icon f7="chevron_left" size="20" />
+        </button>
+        <h1 class="m-0 text-lg font-bold">Расчёты</h1>
+        <div class="w-10" />
+      </div>
 
-    <f7-block-title>Net balances</f7-block-title>
-    <f7-list v-if="balances.length > 0" strong inset dividers>
-      <f7-list-item v-for="entry in balances" :key="entry.userId" :title="displayName(entry.userId)">
-        <template #media>
-          <UserAvatar :name="displayName(entry.userId)" :size="36" />
+      <!-- Tabs -->
+      <div class="px-6">
+        <div class="mt-2 flex rounded-full p-1" style="background: #eceaf7">
+          <button
+            type="button"
+            class="sp-seg-btn flex-1 rounded-full py-2.5 text-sm font-semibold"
+            :style="tab === 'owed' ? 'background: #fff; color: var(--color-accent); box-shadow: 0 4px 12px rgba(109,91,226,0.12)' : 'color: var(--color-sub)'"
+            @click="tab = 'owed'"
+          >
+            Кто должен мне
+          </button>
+          <button
+            type="button"
+            class="sp-seg-btn flex-1 rounded-full py-2.5 text-sm font-semibold"
+            :style="tab === 'owe' ? 'background: #fff; color: var(--color-accent); box-shadow: 0 4px 12px rgba(109,91,226,0.12)' : 'color: var(--color-sub)'"
+            @click="tab = 'owe'"
+          >
+            Кому я должен
+          </button>
+        </div>
+      </div>
+
+      <!-- Кто должен мне -->
+      <div v-if="tab === 'owed'" class="mt-5 px-6">
+        <p class="m-0 text-[13px] font-medium" style="color: var(--color-sub)">Вам должны</p>
+        <p class="sp-positive m-0 mt-1 mb-4 text-[28px] leading-8 font-bold">{{ formatUsdc(totalOwedToMe) }}</p>
+
+        <template v-if="owedToMe.length > 0">
+          <div v-for="debt in owedToMe" :key="debt.fromUserId" class="sp-card-sm mb-3 flex items-center gap-3 p-4">
+            <UserAvatar :name="displayName(debt.fromUserId)" :size="42" />
+            <div class="min-w-0 flex-1">
+              <p class="m-0 truncate font-semibold">{{ displayName(debt.fromUserId) }}</p>
+              <p class="m-0 text-sm" style="color: var(--color-sub)">{{ formatUsdc(debt.amount) }}</p>
+            </div>
+            <button
+              type="button"
+              class="rounded-full border-0 px-4 py-2 text-sm font-semibold"
+              style="background: var(--color-accent-soft); color: var(--color-accent)"
+              @click="requestPayment(debt)"
+            >
+              Запросить
+            </button>
+          </div>
         </template>
-        <template #after>
+        <div v-else class="sp-card p-6 text-center text-sm" style="color: var(--color-sub)">
+          Никто вам не должен
+        </div>
+      </div>
+
+      <!-- Кому я должен -->
+      <div v-else class="mt-5 px-6">
+        <p class="m-0 text-[13px] font-medium" style="color: var(--color-sub)">Вы должны</p>
+        <p class="sp-negative m-0 mt-1 mb-4 text-[28px] leading-8 font-bold">{{ formatUsdc(totalIOwe) }}</p>
+
+        <template v-if="iOwe.length > 0">
+          <div v-for="debt in iOwe" :key="debt.toUserId" class="sp-card-sm mb-3 flex items-center gap-3 p-4">
+            <UserAvatar :name="displayName(debt.toUserId)" :size="42" />
+            <div class="min-w-0 flex-1">
+              <p class="m-0 truncate font-semibold">{{ displayName(debt.toUserId) }}</p>
+              <p class="m-0 text-sm" style="color: var(--color-sub)">{{ formatUsdc(debt.amount) }}</p>
+            </div>
+            <button
+              type="button"
+              class="rounded-full border-0 px-4 py-2 text-sm font-semibold text-white"
+              style="background: linear-gradient(135deg, #7c6cf0, #9d7bfa)"
+              @click="go(`/groups/${groupId}/settle/?to=${debt.toUserId}&amount=${debt.amount}`)"
+            >
+              Оплатить
+            </button>
+          </div>
+        </template>
+        <div v-else class="sp-card p-6 text-center text-sm" style="color: var(--color-sub)">
+          Вы никому не должны
+        </div>
+      </div>
+
+      <p class="mt-6 text-center text-xs" style="color: var(--color-sub)">Все расчёты в USDC на Solana</p>
+
+      <!-- History -->
+      <div v-if="history.length > 0" class="mt-6 px-6">
+        <h3 class="m-0 mb-3 text-[17px] font-bold">История</h3>
+        <div v-for="s in history" :key="s.id" class="sp-card-sm mb-3 flex items-center gap-3 p-4">
           <span
-            class="font-semibold"
-            :class="entry.amount > 0 ? 'sp-positive' : entry.amount < 0 ? 'sp-negative' : 'opacity-50'"
+            class="flex h-10 w-10 items-center justify-center rounded-full"
+            :style="{ backgroundColor: `${statusColorHex(s.status)}1a`, color: statusColorHex(s.status) }"
           >
-            {{ entry.amount > 0 ? '+' : '' }}{{ formatUsdc(entry.amount) }}
+            <f7-icon :f7="statusIcon(s.status)" size="18" />
           </span>
-        </template>
-        <template #subtitle>
-          {{ entry.amount > 0 ? 'is owed' : entry.amount < 0 ? 'owes' : 'settled up' }}
-        </template>
-      </f7-list-item>
-    </f7-list>
+          <div class="min-w-0 flex-1">
+            <p class="m-0 truncate text-sm font-semibold">
+              {{ displayName(s.fromUser) }} → {{ displayName(s.toUser) }}
+            </p>
+            <p class="m-0 text-xs" style="color: var(--color-sub)">{{ statusLabel(s.status) }}</p>
+          </div>
+          <span class="text-sm font-bold">{{ formatUsdc(s.amount) }}</span>
+        </div>
+      </div>
+    </f7-page-content>
 
-    <f7-block-title>How to settle up</f7-block-title>
-    <f7-list v-if="debts.length > 0" strong inset dividers>
-      <DebtListItem v-for="(debt, i) in debts" :key="i" :debt="debt" :member-name="displayName">
-        <template #action>
-          <f7-button
-            v-if="debt.fromUserId === auth.user?.id"
-            small
-            fill
-            round
-            class="ml-2"
-            :href="`/groups/${groupId}/settle/?to=${debt.toUserId}&amount=${debt.amount}`"
-          >
-            Pay
-          </f7-button>
-        </template>
-      </DebtListItem>
-    </f7-list>
-    <EmptyState
-      v-else
-      icon="checkmark_seal_fill"
-      material-icon="verified"
-      title="All settled up"
-      text="Nobody owes anything in this group."
-    />
-
-    <f7-block v-if="fromLocalCalc" class="my-2 text-xs opacity-50">
-      Server unavailable — showing balances computed locally from cached expenses.
-    </f7-block>
-
-    <f7-block-title v-if="history.length > 0">Settlement history</f7-block-title>
-    <f7-list v-if="history.length > 0" strong inset dividers>
-      <f7-list-item
-        v-for="s in history"
-        :key="s.id"
-        :title="`${displayName(s.fromUser)} → ${displayName(s.toUser)}`"
-        :after="formatUsdc(s.amount)"
-        :subtitle="formatRelativeTime(s.createdAt ?? '')"
-      >
-        <template #media>
-          <f7-icon
-            :f7="statusIcon(s.status)"
-            :material="statusMaterial(s.status)"
-            :color="statusColor(s.status)"
-            size="24"
-          />
-        </template>
-        <template #footer>
-          <f7-badge :color="statusColor(s.status)">{{ s.status }}</f7-badge>
-        </template>
-      </f7-list-item>
-    </f7-list>
+    <!-- Bottom segmented: Обзор / Расчёты -->
+    <div class="absolute right-0 bottom-0 left-0 z-30 px-16 pb-6">
+      <div class="flex rounded-full p-1" style="background: #eceaf7">
+        <button type="button" class="sp-seg-btn flex-1 rounded-full py-2.5 text-sm font-semibold" style="color: var(--color-sub)" @click="go(`/groups/${groupId}/`)">
+          Обзор
+        </button>
+        <button type="button" class="flex-1 rounded-full bg-white py-2.5 text-sm font-semibold" style="color: var(--color-accent); box-shadow: 0 4px 12px rgba(109,91,226,0.12)">
+          Расчёты
+        </button>
+      </div>
+    </div>
   </f7-page>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import EmptyState from '@/components/common/EmptyState.vue'
+import { f7 } from 'framework7-vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
-import DebtListItem from '@/components/settlement/DebtListItem.vue'
-import { formatRelativeTime, formatUsdc } from '@/services/utils/format'
-import { calculateBalances, calculateSettlements } from '@/services/utils/split-calculator'
+import { apiErrorMessage } from '@/services/api'
+import { formatUsdc } from '@/services/utils/format'
+import { calculateSettlements } from '@/services/utils/split-calculator'
 import { useAuthStore } from '@/stores/auth'
 import { useExpensesStore } from '@/stores/expenses'
 import { useGroupsStore } from '@/stores/groups'
 import { useSettlementsStore } from '@/stores/settlements'
-import type { MemberBalance, SettlementStatus, SuggestedDebt } from '@/types'
+import type { SettlementStatus, SuggestedDebt } from '@/types'
 
 const props = defineProps<{ f7route: { params: { id: string } } }>()
 
@@ -97,7 +144,7 @@ const expensesStore = useExpensesStore()
 const settlementsStore = useSettlementsStore()
 
 const groupId = props.f7route.params.id
-const fromLocalCalc = ref(false)
+const tab = ref<'owed' | 'owe'>('owed')
 
 const group = computed(() =>
   groupsStore.currentGroup?.id === groupId ? groupsStore.currentGroup : null,
@@ -105,21 +152,42 @@ const group = computed(() =>
 
 /** Server-provided debt graph; falls back to the local greedy calculator when offline. */
 const serverBalance = computed(() => settlementsStore.balanceByGroup[groupId] ?? null)
-
-const balances = computed<MemberBalance[]>(() => {
-  if (serverBalance.value) return serverBalance.value.balances
-  return calculateBalances(expensesStore.expensesFor(groupId))
-})
-
 const debts = computed<SuggestedDebt[]>(() => {
   if (serverBalance.value) return serverBalance.value.debts
   return calculateSettlements(expensesStore.expensesFor(groupId))
 })
 
+const owedToMe = computed(() => debts.value.filter((d) => d.toUserId === auth.user?.id))
+const iOwe = computed(() => debts.value.filter((d) => d.fromUserId === auth.user?.id))
+const totalOwedToMe = computed(() => owedToMe.value.reduce((sum, d) => sum + d.amount, 0))
+const totalIOwe = computed(() => iOwe.value.reduce((sum, d) => sum + d.amount, 0))
+
 const history = computed(() => settlementsStore.historyByGroup[groupId] ?? [])
 
 function displayName(userId: string) {
   return groupsStore.memberName(group.value, userId)
+}
+
+function go(url: string) {
+  f7.views.main.router.navigate(url)
+}
+
+/** "Запросить" — records a payment request to the debtor (pending settlement). */
+async function requestPayment(debt: SuggestedDebt) {
+  try {
+    await settlementsStore.createSettlement(groupId, {
+      fromUserId: debt.fromUserId,
+      toUserId: auth.user!.id,
+      amount: debt.amount,
+      notes: 'Запрос платежа',
+    })
+    f7.toast
+      .create({ text: `Запрос отправлен: ${displayName(debt.fromUserId)}`, position: 'center', closeTimeout: 2000 })
+      .open()
+    await settlementsStore.fetchHistory(groupId).catch(() => {})
+  } catch (e) {
+    f7.dialog.alert(apiErrorMessage(e), 'Не удалось создать запрос')
+  }
 }
 
 function statusIcon(status: SettlementStatus): string {
@@ -132,25 +200,37 @@ function statusIcon(status: SettlementStatus): string {
   }
   return map[status]
 }
-function statusMaterial(status: SettlementStatus): string {
+function statusColorHex(status: SettlementStatus): string {
   const map: Record<SettlementStatus, string> = {
-    pending: 'schedule',
-    processing: 'sync',
-    completed: 'check_circle',
-    failed: 'cancel',
-    disputed: 'warning',
+    pending: '#f59e0b',
+    processing: '#3b82f6',
+    completed: '#34c77b',
+    failed: '#f2507b',
+    disputed: '#eab308',
   }
   return map[status]
 }
-function statusColor(status: SettlementStatus): string {
+function statusLabel(status: SettlementStatus): string {
   const map: Record<SettlementStatus, string> = {
-    pending: 'orange',
-    processing: 'blue',
-    completed: 'green',
-    failed: 'red',
-    disputed: 'yellow',
+    pending: 'Ожидает оплаты',
+    processing: 'Обрабатывается',
+    completed: 'Оплачен',
+    failed: 'Ошибка',
+    disputed: 'Спор',
   }
   return map[status]
+}
+
+async function load() {
+  try {
+    await settlementsStore.fetchBalance(groupId)
+  } catch {
+    // Offline fallback: local greedy calculation from cached expenses.
+    if (expensesStore.expensesFor(groupId).length === 0) {
+      await expensesStore.fetchExpenses(groupId).catch(() => {})
+    }
+  }
+  await settlementsStore.fetchHistory(groupId).catch(() => {})
 }
 
 async function refresh(done: () => void) {
@@ -159,20 +239,6 @@ async function refresh(done: () => void) {
   } finally {
     done()
   }
-}
-
-async function load() {
-  try {
-    await settlementsStore.fetchBalance(groupId)
-    fromLocalCalc.value = false
-  } catch {
-    // Offline fallback: local greedy calculation from cached expenses.
-    if (expensesStore.expensesFor(groupId).length === 0) {
-      await expensesStore.fetchExpenses(groupId).catch(() => {})
-    }
-    fromLocalCalc.value = true
-  }
-  await settlementsStore.fetchHistory(groupId).catch(() => {})
 }
 
 onMounted(() => {

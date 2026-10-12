@@ -68,3 +68,37 @@ export function initials(name: string): string {
     .map((part) => part[0]?.toUpperCase())
     .join('')
 }
+
+/** "12 мая" */
+export function formatDateRu(iso: string | Date): string {
+  const date = typeof iso === 'string' ? new Date(iso) : iso
+  return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+}
+
+/** "11 мая 2025 г." */
+export function formatDateLongRu(iso: string | Date): string {
+  const date = typeof iso === 'string' ? new Date(iso) : iso
+  return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+/** "11 мая, 14:30" */
+export function formatDateTimeRu(iso: string | Date): string {
+  const date = typeof iso === 'string' ? new Date(iso) : iso
+  return `${formatDateRu(date)}, ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
+}
+
+/** Extract the first emoji found in a group name (design uses emoji as group icons). */
+export function groupEmoji(name: string): string {
+  const match = name.match(
+    /(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)/u,
+  )
+  return match?.[1] ?? ''
+}
+
+/** Group name with emoji stripped (emoji is rendered separately as the icon). */
+export function groupNameWithoutEmoji(name: string): string {
+  return name
+    .replace(/\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*/gu, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}

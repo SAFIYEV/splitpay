@@ -111,7 +111,15 @@ export class SettlementsService {
     });
   }
 
-  async create(groupId: string, fromUserId: string, dto: CreateSettlementDto) {
+  async create(groupId: string, userId: string, dto: CreateSettlementDto) {
+    // Default: the current user pays. An explicit fromUserId is allowed when
+    // the current user is the recipient (recording a received repayment).
+    const fromUserId = dto.fromUserId ?? userId;
+    if (fromUserId !== userId && dto.toUserId !== userId) {
+      throw new ForbiddenException(
+        'You can only create settlements where you are one of the parties',
+      );
+    }
     await this.requireMember(groupId, fromUserId);
     if (dto.toUserId === fromUserId) {
       throw new BadRequestException('Cannot settle with yourself');

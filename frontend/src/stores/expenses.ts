@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { api } from '@/services/api'
+import { normalizeArray, normalizeExpense } from '@/services/normalize'
 import type { Expense, ExpenseDraft } from '@/types'
 
 export const useExpensesStore = defineStore('expenses', () => {
@@ -10,24 +11,27 @@ export const useExpensesStore = defineStore('expenses', () => {
   async function fetchExpenses(groupId: string): Promise<Expense[]> {
     loading.value = true
     try {
-      const { data } = await api.get<Expense[]>(`/groups/${groupId}/expenses`)
-      expensesByGroup.value[groupId] = data
-      return data
+      const { data } = await api.get<unknown>(`/groups/${groupId}/expenses`)
+      const list = normalizeArray(data, normalizeExpense)
+      expensesByGroup.value[groupId] = list
+      return list
     } finally {
       loading.value = false
     }
   }
 
   async function fetchExpense(groupId: string, expenseId: string): Promise<Expense> {
-    const { data } = await api.get<Expense>(`/groups/${groupId}/expenses/${expenseId}`)
-    upsertExpense(groupId, data)
-    return data
+    const { data } = await api.get<unknown>(`/groups/${groupId}/expenses/${expenseId}`)
+    const expense = normalizeExpense(data)
+    upsertExpense(groupId, expense)
+    return expense
   }
 
   async function createExpense(groupId: string, draft: ExpenseDraft): Promise<Expense> {
-    const { data } = await api.post<Expense>(`/groups/${groupId}/expenses`, draft)
-    upsertExpense(groupId, data)
-    return data
+    const { data } = await api.post<unknown>(`/groups/${groupId}/expenses`, draft)
+    const expense = normalizeExpense(data)
+    upsertExpense(groupId, expense)
+    return expense
   }
 
   async function updateExpense(
@@ -35,9 +39,10 @@ export const useExpensesStore = defineStore('expenses', () => {
     expenseId: string,
     patch: Partial<ExpenseDraft>,
   ): Promise<Expense> {
-    const { data } = await api.patch<Expense>(`/groups/${groupId}/expenses/${expenseId}`, patch)
-    upsertExpense(groupId, data)
-    return data
+    const { data } = await api.patch<unknown>(`/groups/${groupId}/expenses/${expenseId}`, patch)
+    const expense = normalizeExpense(data)
+    upsertExpense(groupId, expense)
+    return expense
   }
 
   async function deleteExpense(groupId: string, expenseId: string) {
@@ -46,10 +51,11 @@ export const useExpensesStore = defineStore('expenses', () => {
   }
 
   function upsertExpense(groupId: string, expense: Expense) {
+    const normalized = normalizeExpense(expense)
     const list = expensesByGroup.value[groupId] ?? (expensesByGroup.value[groupId] = [])
-    const idx = list.findIndex((e) => e.id === expense.id)
-    if (idx >= 0) list[idx] = expense
-    else list.unshift(expense)
+    const idx = list.findIndex((e) => e.id === normalized.id)
+    if (idx >= 0) list[idx] = normalized
+    else list.unshift(normalized)
   }
 
   function removeExpense(groupId: string, expenseId: string) {

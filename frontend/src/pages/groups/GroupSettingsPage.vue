@@ -1,58 +1,77 @@
 <template>
   <f7-page>
-    <f7-navbar title="Group settings" back-link="Back" />
+    <f7-page-content class="pb-10">
+      <div class="flex items-center gap-3 px-5 pt-6 pb-4">
+        <button type="button" class="sp-icon-btn" @click="back">
+          <f7-icon f7="chevron_left" size="20" />
+        </button>
+        <h1 class="m-0 text-lg font-bold">Настройки группы</h1>
+      </div>
 
-    <template v-if="group">
-      <f7-list strong inset dividers form @submit.prevent>
-        <f7-list-input v-model:value="name" label="Group name" type="text" clear-button />
-        <f7-list-input
-          v-model:value="description"
-          label="Description"
-          type="textarea"
-          resizable
-        />
-        <f7-list-item title="Currency" after="USDC (Solana)" />
-        <f7-list-item title="Status" :after="group.status" />
-      </f7-list>
+      <template v-if="group">
+        <div class="px-6">
+          <label class="sp-label">Название группы</label>
+          <input v-model="name" type="text" class="sp-input mb-4" />
 
-      <f7-block>
-        <f7-button fill round :disabled="!dirty || saving" preloader :loading="saving" @click="save">
-          Save changes
-        </f7-button>
-        <p v-if="errorText" class="mt-3 mb-0 text-center text-sm text-red-500">{{ errorText }}</p>
-      </f7-block>
+          <label class="sp-label">Описание</label>
+          <textarea v-model="description" class="sp-input mb-4" rows="2" placeholder="Зачем эта группа?" />
 
-      <f7-block-title>Invite</f7-block-title>
-      <f7-list strong inset dividers>
-        <f7-list-item title="Invite code" :after="group.metadata?.inviteCode ?? '—'">
-          <template #inner-end>
-            <f7-button small round outline class="ml-2" @click="copyInvite">Copy</f7-button>
-          </template>
-        </f7-list-item>
-        <f7-list-item link title="Generate new code" @click="regenerate" />
-      </f7-list>
+          <button type="button" class="sp-btn-gradient" :disabled="!dirty || saving" @click="save">
+            {{ saving ? 'Сохраняем…' : 'Сохранить' }}
+          </button>
+          <p v-if="errorText" class="mt-3 mb-0 text-center text-sm" style="color: var(--color-rose)">{{ errorText }}</p>
+        </div>
 
-      <template v-if="isAdmin">
-        <f7-block-title>Danger zone</f7-block-title>
-        <f7-list strong inset dividers>
-          <f7-list-item
-            v-if="group.status === 'active'"
-            link
-            title="Archive group"
-            @click="archive"
-          />
-          <f7-list-item link title="Delete group" class="text-red-500" @click="confirmDelete" />
-        </f7-list>
+        <div class="mt-6 px-6">
+          <p class="sp-label">Приглашение</p>
+          <div class="sp-card-sm flex items-center gap-3 p-4">
+            <div class="min-w-0 flex-1">
+              <p class="m-0 text-xs" style="color: var(--color-sub)">Код приглашения</p>
+              <p class="m-0 text-lg font-bold tracking-widest">{{ group.inviteCode ?? '—' }}</p>
+            </div>
+            <button type="button" class="rounded-full border-0 px-4 py-2 text-sm font-semibold" style="background: var(--color-accent-soft); color: var(--color-accent)" @click="copyInvite">
+              Копировать
+            </button>
+          </div>
+          <button type="button" class="sp-btn-soft mt-3" @click="regenerate">Сгенерировать новый код</button>
+          <button type="button" class="sp-btn-soft mt-3" @click="go(`/groups/${groupId}/members/`)">
+            Участники ({{ group.members.length }})
+          </button>
+        </div>
+
+        <template v-if="isAdmin">
+          <div class="mt-6 px-6">
+            <p class="sp-label">Опасная зона</p>
+            <button v-if="group.status === 'active'" type="button" class="sp-btn-soft" @click="archive">
+              Архивировать группу
+            </button>
+            <button
+              type="button"
+              class="mt-3 w-full rounded-[18px] border-0 py-4 text-[16px] font-semibold"
+              style="background: #ffeef3; color: var(--color-rose)"
+              @click="confirmDelete"
+            >
+              Удалить группу
+            </button>
+          </div>
+        </template>
+
+        <div class="mt-4 px-6">
+          <button
+            type="button"
+            class="w-full rounded-[18px] border-2 bg-transparent py-3.5 text-[15px] font-semibold"
+            style="border-color: #ffd3e0; color: var(--color-rose)"
+            @click="confirmLeave"
+          >
+            Покинуть группу
+          </button>
+        </div>
       </template>
 
-      <f7-block>
-        <f7-button outline round color="red" @click="confirmLeave">Leave group</f7-button>
-      </f7-block>
-    </template>
-
-    <f7-block v-else class="flex justify-center py-16">
-      <f7-preloader />
-    </f7-block>
+      <div v-else class="flex justify-center py-20">
+        <f7-preloader />
+      </div>
+    </f7-page-content>
   </f7-page>
 </template>
 
@@ -82,8 +101,7 @@ const group = computed(() =>
   groupsStore.currentGroup?.id === groupId ? groupsStore.currentGroup : null,
 )
 const isAdmin = computed(
-  () =>
-    group.value?.members.some((m) => m.userId === auth.user?.id && m.role === 'admin') ?? false,
+  () => group.value?.members.some((m) => m.userId === auth.user?.id && m.role === 'admin') ?? false,
 )
 const dirty = computed(
   () => name.value !== group.value?.name || description.value !== (group.value?.description ?? ''),
@@ -100,15 +118,20 @@ watch(
   { immediate: true },
 )
 
+function go(url: string) {
+  f7.views.main.router.navigate(url)
+}
+
+function back() {
+  props.f7router.back()
+}
+
 async function save() {
   saving.value = true
   errorText.value = null
   try {
-    await groupsStore.updateGroup(groupId, {
-      name: name.value.trim(),
-      description: description.value.trim(),
-    })
-    f7.toast.create({ text: 'Group updated', position: 'center', closeTimeout: 1500 }).open()
+    await groupsStore.updateGroup(groupId, { name: name.value.trim(), description: description.value.trim() })
+    f7.toast.create({ text: 'Группа обновлена', position: 'center', closeTimeout: 1500 }).open()
   } catch (e) {
     errorText.value = apiErrorMessage(e)
   } finally {
@@ -117,59 +140,53 @@ async function save() {
 }
 
 async function copyInvite() {
-  const code = group.value?.metadata?.inviteCode
+  const code = group.value?.inviteCode
   if (!code) return
   try {
     await navigator.clipboard.writeText(code)
-    f7.toast.create({ text: 'Invite code copied', position: 'center', closeTimeout: 1500 }).open()
+    f7.toast.create({ text: 'Код скопирован', position: 'center', closeTimeout: 1500 }).open()
   } catch {
-    f7.dialog.alert(code, 'Invite code')
+    f7.dialog.alert(code, 'Код приглашения')
   }
 }
 
 async function regenerate() {
   try {
     const code = await groupsStore.regenerateInvite(groupId)
-    f7.toast
-      .create({ text: code ? `New code: ${code}` : 'New invite code generated', position: 'center', closeTimeout: 2500 })
-      .open()
+    f7.toast.create({ text: code ? `Новый код: ${code}` : 'Код обновлён', position: 'center', closeTimeout: 2500 }).open()
   } catch (e) {
-    f7.dialog.alert(apiErrorMessage(e), 'Could not generate code')
+    f7.dialog.alert(apiErrorMessage(e), 'Не удалось создать код')
   }
 }
 
 async function archive() {
   try {
     await groupsStore.updateGroup(groupId, { status: 'archived' })
-    f7.toast.create({ text: 'Group archived', position: 'center', closeTimeout: 1500 }).open()
-    props.f7router.navigate('/groups/', { clearPreviousHistory: true })
+    f7.toast.create({ text: 'Группа архивирована', position: 'center', closeTimeout: 1500 }).open()
+    go('/groups/')
   } catch (e) {
-    f7.dialog.alert(apiErrorMessage(e), 'Could not archive')
+    f7.dialog.alert(apiErrorMessage(e), 'Не удалось архивировать')
   }
 }
 
 function confirmDelete() {
-  f7.dialog.confirm(
-    'Delete this group and all its expenses? This cannot be undone.',
-    'Delete group',
-    async () => {
-      try {
-        await groupsStore.deleteGroup(groupId)
-        props.f7router.navigate('/groups/', { clearPreviousHistory: true })
-      } catch (e) {
-        f7.dialog.alert(apiErrorMessage(e), 'Could not delete')
-      }
-    },
-  )
+  f7.dialog.confirm('Удалить группу и все расходы? Это действие нельзя отменить.', 'Удалить группу', async () => {
+    try {
+      await groupsStore.deleteGroup(groupId)
+      go('/groups/')
+    } catch (e) {
+      f7.dialog.alert(apiErrorMessage(e), 'Не удалось удалить')
+    }
+  })
 }
 
 function confirmLeave() {
-  f7.dialog.confirm('Leave this group? Your expenses will remain visible to others.', 'Leave group', async () => {
+  f7.dialog.confirm('Покинуть группу? Ваши расходы останутся видны участникам.', 'Покинуть группу', async () => {
     try {
       await groupsStore.leaveGroup(groupId)
-      props.f7router.navigate('/groups/', { clearPreviousHistory: true })
+      go('/groups/')
     } catch (e) {
-      f7.dialog.alert(apiErrorMessage(e), 'Could not leave')
+      f7.dialog.alert(apiErrorMessage(e), 'Не удалось выйти')
     }
   })
 }

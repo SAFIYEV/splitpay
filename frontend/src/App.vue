@@ -22,11 +22,11 @@ const auth = useAuthStore()
 const wallet = useWalletStore()
 
 const f7params = {
-  theme: 'auto' as const, // iOS theme on iPhone, Material on Android (spec 6.4)
+  theme: 'ios' as const, // design mockups are iOS-styled; force on all devices
   name: 'SplitPay',
   id: 'com.splitpay.app',
   routes,
-  darkMode: 'auto' as const,
+  darkMode: false as const,
 }
 
 function onUnauthorized() {

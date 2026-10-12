@@ -14,6 +14,15 @@ export class CreateSettlementDto {
   @IsNotEmpty()
   toUserId: string;
 
+  /**
+   * Optional explicit payer. When set, the current user must be one of the
+   * two parties (recording a repayment you received from another member).
+   */
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  fromUserId?: string;
+
   @IsNumber({ maxDecimalPlaces: 6 })
   @IsPositive()
   amount: number;

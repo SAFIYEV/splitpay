@@ -1,60 +1,108 @@
 <template>
   <f7-page ptr @ptr:refresh="refresh">
-    <f7-navbar title="Activity" back-link="Groups" />
+    <f7-page-content class="pb-32">
+      <div class="px-6 pt-8 pb-4">
+        <h1 class="m-0 text-2xl font-bold">Активность</h1>
+      </div>
 
-    <f7-timeline v-if="feed.length > 0" class="mx-4 my-4">
-      <f7-timeline-item
-        v-for="item in feed"
-        :key="item.id"
-        :day="dayLabel(item.createdAt)"
-        :time="timeLabel(item.createdAt)"
-      >
-        <div class="flex items-start gap-2">
-          <f7-icon
-            :f7="metaFor(item.type).f7"
-            :material="metaFor(item.type).material"
-            size="18"
-            :style="{ color: metaFor(item.type).color }"
-            class="mt-0.5"
-          />
-          <div>
-            <p class="m-0 text-sm font-semibold">{{ item.title }}</p>
-            <p class="m-0 text-sm opacity-70">{{ item.body }}</p>
+      <!-- Filter chips -->
+      <div class="mb-5 flex gap-2 overflow-x-auto px-6" style="scrollbar-width: none">
+        <button
+          v-for="chip in chips"
+          :key="chip.id"
+          type="button"
+          class="shrink-0 rounded-full border-0 px-4 py-2 text-sm font-semibold"
+          :style="filter === chip.id
+            ? 'background: var(--color-accent); color: #fff'
+            : 'background: #fff; color: var(--color-sub)'"
+          @click="filter = chip.id"
+        >
+          {{ chip.label }}
+        </button>
+      </div>
+
+      <template v-if="grouped.length > 0">
+        <div v-for="[day, items] in grouped" :key="day" class="mb-5 px-6">
+          <p class="m-0 mb-2.5 text-[13px] font-semibold" style="color: var(--color-sub)">{{ day }}</p>
+          <div v-for="item in items" :key="item.id" class="sp-card-sm mb-2.5 flex items-center gap-3 p-4">
+            <span
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+              :style="{ backgroundColor: `${metaFor(item.type).color}1a`, color: metaFor(item.type).color }"
+            >
+              <f7-icon :f7="metaFor(item.type).f7" size="18" />
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="m-0 truncate text-sm font-semibold">{{ item.title }}</p>
+              <p class="m-0 truncate text-xs" style="color: var(--color-sub)">{{ item.body }}</p>
+              <p class="m-0 text-xs" style="color: var(--color-sub)">{{ formatDateTimeRu(item.createdAt) }}</p>
+            </div>
+            <span v-if="!item.read" class="h-2 w-2 shrink-0 rounded-full" style="background: var(--color-accent)" />
           </div>
         </div>
-      </f7-timeline-item>
-    </f7-timeline>
+      </template>
 
-    <EmptyState
-      v-else
-      icon="bolt"
-      material-icon="bolt"
-      title="Nothing yet"
-      text="Activity across all your groups — new expenses, payments and members — will appear here."
-    />
+      <div v-else class="sp-card mx-6 p-8 text-center">
+        <p class="m-0 mb-1 font-semibold">Пока пусто</p>
+        <p class="m-0 text-sm" style="color: var(--color-sub)">
+          Новые расходы, платежи и участники появятся здесь.
+        </p>
+      </div>
+    </f7-page-content>
+
+    <TabBar active="activity" />
   </f7-page>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import EmptyState from '@/components/common/EmptyState.vue'
+import { computed, onMounted, ref } from 'vue'
+import TabBar from '@/components/layout/TabBar.vue'
+import { formatDateRu, formatDateTimeRu } from '@/services/utils/format'
 import { useNotificationsStore } from '@/stores/notifications'
-import type { NotificationType } from '@/types'
+import type { NotificationItem, NotificationType } from '@/types'
 
 const notifications = useNotificationsStore()
 
-/** Activity feed = cross-group notification stream, newest first. */
-const feed = computed(() =>
-  [...notifications.items].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)),
-)
+type Filter = 'all' | 'expenses' | 'payments' | 'income'
+const filter = ref<Filter>('all')
+const chips: { id: Filter; label: string }[] = [
+  { id: 'all', label: 'Все' },
+  { id: 'expenses', label: 'Расходы' },
+  { id: 'payments', label: 'Платежи' },
+  { id: 'income', label: 'Доходы' },
+]
 
-const TYPE_META: Record<NotificationType, { f7: string; material: string; color: string }> = {
-  expense_added: { f7: 'cart_fill', material: 'receipt_long', color: '#f59e0b' },
-  settlement_reminder: { f7: 'clock_fill', material: 'schedule', color: '#f97316' },
-  payment_received: { f7: 'arrow_down_circle_fill', material: 'south', color: '#16a34a' },
-  member_joined: { f7: 'person_badge_plus_fill', material: 'person_add', color: '#3b82f6' },
-  group_invite: { f7: 'envelope_fill', material: 'mail', color: '#8b5cf6' },
-  dispute_opened: { f7: 'exclamationmark_triangle_fill', material: 'warning', color: '#dc2626' },
+const FILTER_TYPES: Record<Filter, NotificationType[] | null> = {
+  all: null,
+  expenses: ['expense_added'],
+  payments: ['settlement_reminder', 'dispute_opened'],
+  income: ['payment_received'],
+}
+
+const filtered = computed(() => {
+  const types = FILTER_TYPES[filter.value]
+  const list = [...notifications.items].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+  return types ? list.filter((n) => types.includes(n.type)) : list
+})
+
+/** Day-grouped: Сегодня / Вчера / date. */
+const grouped = computed<[string, NotificationItem[]][]>(() => {
+  const groups = new Map<string, NotificationItem[]>()
+  for (const item of filtered.value) {
+    const day = dayLabel(item.createdAt)
+    const list = groups.get(day) ?? []
+    list.push(item)
+    groups.set(day, list)
+  }
+  return [...groups.entries()]
+})
+
+const TYPE_META: Record<NotificationType, { f7: string; color: string }> = {
+  expense_added: { f7: 'cart_fill', color: '#f59e0b' },
+  settlement_reminder: { f7: 'clock_fill', color: '#6d5be2' },
+  payment_received: { f7: 'arrow_down_circle_fill', color: '#34c77b' },
+  member_joined: { f7: 'person_badge_plus_fill', color: '#3b82f6' },
+  group_invite: { f7: 'envelope_fill', color: '#8b5cf6' },
+  dispute_opened: { f7: 'exclamationmark_triangle_fill', color: '#f2507b' },
 }
 
 function metaFor(type: NotificationType) {
@@ -66,13 +114,9 @@ function dayLabel(iso: string): string {
   const today = new Date()
   const yesterday = new Date(today)
   yesterday.setDate(today.getDate() - 1)
-  if (date.toDateString() === today.toDateString()) return 'Today'
-  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
-function timeLabel(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  if (date.toDateString() === today.toDateString()) return 'Сегодня'
+  if (date.toDateString() === yesterday.toDateString()) return 'Вчера'
+  return formatDateRu(date)
 }
 
 async function refresh(done: () => void) {

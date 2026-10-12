@@ -1,154 +1,149 @@
 <template>
   <f7-page ptr @ptr:refresh="refresh">
-    <f7-navbar :title="group?.name ?? 'Group'" back-link="Groups">
-      <template #right>
-        <f7-link :href="`/groups/${groupId}/settings/`" icon-f7="gear_alt" icon-material="settings" />
-      </template>
-    </f7-navbar>
+    <f7-page-content class="pb-28">
+      <!-- Header -->
+      <div class="flex items-center justify-between px-5 pt-6 pb-2">
+        <button type="button" class="sp-icon-btn" @click="go('/groups/')">
+          <f7-icon f7="chevron_left" size="20" />
+        </button>
+        <h1 class="m-0 text-lg font-bold">
+          {{ group ? groupNameWithoutEmoji(group.name) : '…' }}
+          <span v-if="group && groupEmoji(group.name)">{{ groupEmoji(group.name) }}</span>
+        </h1>
+        <button type="button" class="sp-icon-btn" @click="go(`/groups/${groupId}/settings/`)">
+          <f7-icon f7="gear_alt" size="19" />
+        </button>
+      </div>
 
-    <template v-if="group">
-      <!-- Header card -->
-      <f7-card class="sp-stat-card mx-4 mt-4">
-        <f7-card-content>
-          <div class="flex items-center gap-3">
-            <UserAvatar :name="group.name" :size="52" />
-            <div class="min-w-0 flex-1">
-              <h2 class="m-0 truncate text-lg font-bold">{{ group.name }}</h2>
-              <p class="m-0 truncate text-sm opacity-60">
-                {{ group.description || `${group.members.length} members` }}
-              </p>
-            </div>
-            <div class="flex -space-x-2">
-              <UserAvatar
-                v-for="member in group.members.slice(0, 4)"
-                :key="member.userId"
-                :name="displayName(member.userId)"
-                :size="30"
-                class="ring-2 ring-white dark:ring-neutral-900"
-              />
-            </div>
+      <template v-if="group">
+        <!-- Members row -->
+        <div class="mt-2 flex justify-center gap-4 px-6">
+          <div
+            v-for="member in sortedMembers"
+            :key="member.userId"
+            class="flex w-14 flex-col items-center gap-1"
+          >
+            <UserAvatar :name="displayName(member.userId)" :size="48" />
+            <span class="max-w-full truncate text-xs" style="color: var(--color-sub)">
+              {{ member.userId === auth.user?.id ? 'Вы' : displayName(member.userId) }}
+            </span>
           </div>
-        </f7-card-content>
-      </f7-card>
+        </div>
 
-      <!-- Stats -->
-      <f7-block class="my-4 grid grid-cols-2 gap-3">
-        <f7-card class="sp-stat-card m-0">
-          <f7-card-content>
-            <p class="m-0 text-xs uppercase tracking-wide opacity-60">Total spent</p>
-            <p class="mt-1 mb-0 text-xl font-bold">{{ formatUsdc(group.totalSpent) }}</p>
-          </f7-card-content>
-        </f7-card>
-        <f7-card class="sp-stat-card m-0">
-          <f7-card-content>
-            <p class="m-0 text-xs uppercase tracking-wide opacity-60">Your balance</p>
-            <p
-              class="mt-1 mb-0 text-xl font-bold"
-              :class="myBalance > 0 ? 'sp-positive' : myBalance < 0 ? 'sp-negative' : ''"
-            >
-              {{ formatUsdc(myBalance) }}
+        <!-- Balance card -->
+        <div class="mt-4 px-6">
+          <div class="sp-card p-5">
+            <p class="m-0 text-[13px] font-medium" style="color: var(--color-sub)">Баланс группы</p>
+            <p class="sp-positive m-0 mt-1 text-[28px] leading-8 font-bold">
+              {{ formatUsdc(group.totalSpent) }}
             </p>
-          </f7-card-content>
-        </f7-card>
-      </f7-block>
+            <button type="button" class="sp-btn-soft mt-4" @click="go(`/groups/${groupId}/balances/`)">
+              Посмотреть расчёты
+            </button>
+          </div>
+        </div>
 
-      <!-- Quick actions -->
-      <f7-block class="my-2 grid grid-cols-4 gap-2 text-center">
-        <f7-link :href="`/groups/${groupId}/expenses/`" class="flex flex-col items-center gap-1">
-          <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-100 text-brand-600 dark:bg-brand-900">
-            <f7-icon f7="list_bullet" material="receipt_long" size="22" />
-          </span>
-          <span class="text-xs">Expenses</span>
-        </f7-link>
-        <f7-link :href="`/groups/${groupId}/balances/`" class="flex flex-col items-center gap-1">
-          <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-100 text-brand-600 dark:bg-brand-900">
-            <f7-icon f7="chart_bar_fill" material="balance" size="22" />
-          </span>
-          <span class="text-xs">Balances</span>
-        </f7-link>
-        <f7-link :href="`/groups/${groupId}/settle/`" class="flex flex-col items-center gap-1">
-          <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-100 text-brand-600 dark:bg-brand-900">
-            <f7-icon f7="paperplane_fill" material="send" size="22" />
-          </span>
-          <span class="text-xs">Settle up</span>
-        </f7-link>
-        <f7-link :href="`/groups/${groupId}/members/`" class="flex flex-col items-center gap-1">
-          <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-100 text-brand-600 dark:bg-brand-900">
-            <f7-icon f7="person_2_fill" material="group" size="22" />
-          </span>
-          <span class="text-xs">Members</span>
-        </f7-link>
-      </f7-block>
-
-      <!-- Recent expenses -->
-      <f7-block-title class="flex items-center justify-between">
-        <span>Recent expenses</span>
-        <f7-link :href="`/groups/${groupId}/expenses/`" class="text-sm font-medium">See all</f7-link>
-      </f7-block-title>
-      <f7-list v-if="recentExpenses.length > 0" media-list strong inset>
-        <f7-list-item
-          v-for="expense in recentExpenses"
-          :key="expense.id"
-          :link="`/groups/${groupId}/expenses/${expense.id}/`"
-          :title="expense.description"
-          :subtitle="`${displayName(expense.paidBy)} paid · ${formatDate(expense.date)}`"
-          :after="formatUsdc(expense.amount)"
-        >
-          <template #media>
-            <div
-              class="flex h-10 w-10 items-center justify-center rounded-full"
-              :style="{ backgroundColor: `${categoryMeta(expense.category).color}22`, color: categoryMeta(expense.category).color }"
+        <!-- Recent expenses -->
+        <div class="mt-6 px-6">
+          <div class="mb-3 flex items-center justify-between">
+            <h3 class="m-0 text-[17px] font-bold">Недавние расходы</h3>
+            <button
+              type="button"
+              class="flex h-8 w-8 items-center justify-center rounded-full border-0"
+              style="background: var(--color-accent-soft); color: var(--color-accent)"
+              @click="go(`/groups/${groupId}/expenses/new/`)"
             >
-              <f7-icon
-                :f7="categoryMeta(expense.category).f7Icon"
-                :material="categoryMeta(expense.category).materialIcon"
-                size="20"
-              />
-            </div>
+              <f7-icon f7="plus" size="16" />
+            </button>
+          </div>
+
+          <template v-if="recentExpenses.length > 0">
+            <button
+              v-for="expense in recentExpenses"
+              :key="expense.id"
+              type="button"
+              class="sp-card-sm mb-3 flex w-full items-center gap-3 border-0 p-4 text-left"
+              @click="go(`/groups/${groupId}/expenses/${expense.id}/`)"
+            >
+              <span
+                class="flex h-11 w-11 items-center justify-center rounded-2xl"
+                :style="{ backgroundColor: `${categoryMeta(expense.category).color}1a`, color: categoryMeta(expense.category).color }"
+              >
+                <f7-icon :f7="categoryMeta(expense.category).f7Icon" size="20" />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate font-semibold">{{ expense.description }}</span>
+                <span class="block text-xs" style="color: var(--color-sub)">{{ displayName(expense.paidBy) }}</span>
+              </span>
+              <span class="text-right">
+                <span class="sp-positive block text-[15px] font-bold">{{ formatUsdc(expense.amount) }}</span>
+                <span class="block text-xs" style="color: var(--color-sub)">{{ formatDateRu(expense.date) }}</span>
+              </span>
+            </button>
+            <button
+              v-if="expensesStore.expensesFor(groupId).length > recentExpenses.length"
+              type="button"
+              class="sp-btn-soft"
+              @click="go(`/groups/${groupId}/expenses/`)"
+            >
+              Все расходы
+            </button>
           </template>
-        </f7-list-item>
-      </f7-list>
-      <EmptyState
-        v-else
-        icon="receipt"
-        material-icon="receipt_long"
-        title="No expenses yet"
-        text="Add the first shared expense for this group."
-      />
-    </template>
 
-    <f7-block v-else class="flex justify-center py-16">
-      <f7-preloader />
-    </f7-block>
+          <div v-else class="sp-card p-8 text-center">
+            <p class="m-0 mb-1 font-semibold">Пока нет расходов</p>
+            <p class="m-0 text-sm" style="color: var(--color-sub)">Нажмите +, чтобы добавить первый расход.</p>
+          </div>
+        </div>
+      </template>
 
-    <f7-fab position="right-bottom" :href="`/groups/${groupId}/expenses/new/`">
-      <f7-icon f7="plus" material="add" />
-    </f7-fab>
+      <div v-else class="flex justify-center py-20">
+        <f7-preloader />
+      </div>
+    </f7-page-content>
+
+    <!-- Bottom segmented: Обзор / Расчёты -->
+    <div class="absolute right-0 bottom-0 left-0 z-30 px-16 pb-6">
+      <div class="flex rounded-full p-1" style="background: #eceaf7">
+        <button type="button" class="sp-seg-btn flex-1 rounded-full bg-white py-2.5 text-sm font-semibold" style="color: var(--color-accent); box-shadow: 0 4px 12px rgba(109,91,226,0.12)">
+          Обзор
+        </button>
+        <button type="button" class="sp-seg-btn flex-1 rounded-full py-2.5 text-sm font-semibold" style="color: var(--color-sub)" @click="go(`/groups/${groupId}/balances/`)">
+          Расчёты
+        </button>
+      </div>
+    </div>
   </f7-page>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import EmptyState from '@/components/common/EmptyState.vue'
+import { f7 } from 'framework7-vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { categoryMeta } from '@/composables/categories'
-import { formatDate, formatUsdc } from '@/services/utils/format'
+import { formatDateRu, formatUsdc, groupEmoji, groupNameWithoutEmoji } from '@/services/utils/format'
 import { joinGroupRoom, leaveGroupRoom } from '@/services/websocket'
 import { useAuthStore } from '@/stores/auth'
 import { useExpensesStore } from '@/stores/expenses'
 import { useGroupsStore } from '@/stores/groups'
-import { useSettlementsStore } from '@/stores/settlements'
-import type { Group } from '@/types'
+import type { Group, GroupMember } from '@/types'
 
 const props = defineProps<{ f7route: { params: { id: string } } }>()
 
 const groupsStore = useGroupsStore()
 const expensesStore = useExpensesStore()
-const settlementsStore = useSettlementsStore()
 const auth = useAuthStore()
 
 const groupId = props.f7route.params.id
 const group = ref<Group | null>(groupsStore.currentGroup?.id === groupId ? groupsStore.currentGroup : null)
+
+/** Current user first, then the rest. */
+const sortedMembers = computed<GroupMember[]>(() => {
+  if (!group.value) return []
+  const me = group.value.members.filter((m) => m.userId === auth.user?.id)
+  const rest = group.value.members.filter((m) => m.userId !== auth.user?.id)
+  return [...me, ...rest]
+})
 
 const recentExpenses = computed(() =>
   [...expensesStore.expensesFor(groupId)]
@@ -156,23 +151,18 @@ const recentExpenses = computed(() =>
     .slice(0, 5),
 )
 
-const myBalance = computed(() => {
-  const balance = settlementsStore.balanceByGroup[groupId]
-  const me = balance?.balances.find((b) => b.userId === auth.user?.id)
-  return me?.amount ?? 0
-})
-
 function displayName(userId: string) {
   return groupsStore.memberName(group.value, userId)
+}
+
+function go(url: string) {
+  f7.views.main.router.navigate(url)
 }
 
 async function load() {
   const fetched = await groupsStore.fetchGroup(groupId)
   group.value = fetched
-  await Promise.allSettled([
-    expensesStore.fetchExpenses(groupId),
-    settlementsStore.fetchBalance(groupId),
-  ])
+  await expensesStore.fetchExpenses(groupId).catch(() => {})
 }
 
 async function refresh(done: () => void) {
