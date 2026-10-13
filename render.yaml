@@ -17,7 +17,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 3000
+        value: "3000"
       # AWS RDS PostgreSQL endpoint, напр. postgresql://splitpay:PASSWORD@splitpay.xxxx.us-east-1.rds.amazonaws.com:5432/splitpay
       - key: DATABASE_URL
         sync: false
@@ -79,3 +79,6 @@ services:
     name: splitpay-redis
     plan: starter
     maxmemoryPolicy: noeviction
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: everywhere
