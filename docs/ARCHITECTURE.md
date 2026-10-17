@@ -23,15 +23,12 @@ Prisma schema (нормализованная): `User`, `Group`, `GroupMember`, 
 ## Инфраструктура
 
 ```
-Render ──► AWS (RDS PostgreSQL + ElastiCache Redis) ──► Solana Devnet (Helius)
+AWS EC2 (backend + frontend + nginx + Redis) ──► AWS RDS PostgreSQL ──► Solana Devnet (Helius)
 ```
 
 - Локально: `docker-compose.yml` поднимает PostgreSQL 16 + Redis 7
-- Прод: Render подключается к AWS RDS/ElastiCache через Security Groups
-
-## Прод-окружение — требуется от владельца AWS
-
-- AWS Account ID, регион (рекомендация: `us-east-1` или `eu-west-1`)
-- RDS PostgreSQL endpoint + master password
-- ElastiCache Redis endpoint
-- Security Group: разрешить входящие с Render на порты 5432 и 6379
+- Прод: EC2 t3.medium (см. [DEPLOY.md](DEPLOY.md)); Redis — локальный на инстансе
+  (очереди BullMQ + WS pub/sub); RDS доступен только с EC2-SG и IP владельца
+- Ранее рассматривались Render + ElastiCache — отклонено: у ElastiCache нет
+  публичного endpoint, а Render не умеет VPC peering в AWS; EC2 с локальным
+  Redis проще и дешевле на текущем масштабе

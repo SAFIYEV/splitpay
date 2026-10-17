@@ -1,80 +1,93 @@
-# SplitPay — Деплой в продакшн
+# SplitPay — продакшн-деплой (AWS)
 
 ## Обзор
 
 ```
-Render (splitpay-api + splitpay-web + splitpay-redis)
-        │
-        ▼
-AWS: RDS PostgreSQL (us-east-1)
-        │
-        ▼
-Solana (devnet → mainnet) через Helius RPC + Webhooks
+Пользователь → https://52-87-49-59.sslip.io (nginx + Let's Encrypt)
+                 ├─ /            → frontend (статика, /opt/splitpay/frontend/dist)
+                 ├─ /api/v1/*    → backend (systemd splitpay-api, :3000)
+                 └─ /socket.io/* → backend (WebSocket upgrade)
+Backend → AWS RDS PostgreSQL (приватный SG) + локальный Redis
+Solana: devnet (USDC 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU)
 ```
 
-## 1. AWS: RDS PostgreSQL — УЖЕ СОЗДАН
+## Инфраструктура (аккаунт 399033576582, регион us-east-1)
 
-Создан через AWS CLI (аккаунт 399033576582, регион us-east-1):
+| Компонент | Ресурс | Примечание |
+|---|---|---|
+| EC2 | `i-0416399ca76176d38` (t3.medium, Ubuntu 24.04) | EIP `52.87.49.59`, SG `splitpay-ec2-sg` (22/80/443), SSM-доступ (без SSH-ключей) |
+| RDS | `splitpay` — PostgreSQL 16.15, db.t3.micro | SG `sg-05d30d6c7cf6e5fc7`: 5432 только с EC2-SG и IP владельца |
+| Redis | локальный `redis-server` на EC2 (127.0.0.1) | очереди BullMQ + WS pub/sub |
+| TLS | certbot + Let's Encrypt, домен `52-87-49-59.sslip.io` | авто-продление (`certbot renew` по таймеру) |
 
-- Instance: `splitpay`, PostgreSQL 16.15, `db.t3.micro`, 20 GB gp3, publicly accessible
-- Security group: `splitpay-rds-sg` (sg-05d30d6c7cf6e5fc7), inbound TCP 5432 с `0.0.0.0/0`
-- Credentials: master user `splitpay`, пароль — в `.env.production.local` (не коммитится)
-- `DATABASE_URL=postgresql://splitpay:PASSWORD@splitpay.cuvkme0m4zr0.us-east-1.rds.amazonaws.com:5432/splitpay?schema=public&sslmode=require`
-- `rds.force_ssl=1` (default parameter group) — без SSL соединение отклоняется (проверено)
-- Миграция `0001_init` уже применена (7 таблиц + `_prisma_migrations` с корректной checksum)
+Доступ на инстанс: `aws ssm start-session --region us-east-1 --target i-0416399ca76176d38`
+(на инстансе — IAM-профиль `splitpay-ec2-ssm-profile`, SSH-ключи не нужны).
 
-> Render не имеет фиксированных IP, поэтому SG открыт на 0.0.0.0/0 — защита через TLS (`sslmode=require`) + сильный пароль.
+Доступ к БД для просмотра (read-only) — см. [DATABASE.md](DATABASE.md).
 
-## 2. Redis: Render Key Value (НЕ ElastiCache)
+## Раскладка на инстансе
 
-**Почему не ElastiCache:** ElastiCache доступен только внутри VPC AWS — публичного endpoint у него нет и быть не может. Render не поддерживает VPC peering/PrivateLink в AWS на обычных планах, поэтому backend на Render физически не смог бы подключиться к ElastiCache.
+- `/opt/splitpay` — git-репозиторий (ветка main, GitHub `SAFIYEV/splitpay`)
+- `splitpay-api.service` — systemd, `User=ubuntu`, `EnvironmentFile=/opt/splitpay/backend/.env`, `ExecStart=node dist/main.js`, `Restart=always`
+- nginx — `/etc/nginx/sites-enabled/splitpay`: статика + прокси /api и /socket.io, TLS от certbot
+- npm 11 глобально (lock-файлы генерируются npm 11 — npm 10 их не принимает)
 
-Решение: **Render Key Value** (managed Redis) — нативно для Render, TLS, создаётся автоматически из `render.yaml` (сервис `splitpay-redis`, `REDIS_URL` подставляется через `fromService`).
-
-Альтернатива, если принципиально держать Redis в AWS: перенести backend с Render на AWS App Runner с VPC connector — тогда ElastiCache работает. Это отдельная миграция, для MVP не нужна.
-
-## 3. Render
-
-1. Render Dashboard → **New → Blueprint** → подключить репозиторий `SAFIYEV/splitpay`
-2. Render прочитает `render.yaml` и создаст два сервиса: `splitpay-api` (Docker) и `splitpay-web` (static)
-3. Заполнить env vars со `sync: false`:
-   - `splitpay-api`: `DATABASE_URL`, `REDIS_URL`, `SPLITPAY_PROGRAM_ID`, `HELIUS_API_KEY`, `HELIUS_WEBHOOK_SECRET`, `CORS_ORIGIN=https://splitpay-web.onrender.com`
-   - `splitpay-web`: `VITE_API_URL=https://splitpay-api.onrender.com/api/v1`, `VITE_WS_URL=https://splitpay-api.onrender.com`, `VITE_SPLITPAY_PROGRAM_ID`
-4. Первый деплой backend выполнит `prisma migrate deploy` (встроено в Dockerfile)
-5. Health check: `https://splitpay-api.onrender.com/api/v1/health`
-
-## 4. Solana program → devnet
-
-Сборка программы требует Linux (на Windows — WSL2, см. `program/README.md`):
+## Редеплой новой версии (вручную через SSM)
 
 ```bash
-cd program
-anchor build
-anchor keys sync            # синхронизирует program id в declare_id! и Anchor.toml
+# 1. Обновить код и backend
+cd /opt/splitpay && sudo -u ubuntu git pull --ff-only
+cd backend && sudo -u ubuntu env HOME=/home/ubuntu npm ci --no-audit --no-fund
+sudo -u ubuntu env HOME=/home/ubuntu npm run build
+sudo -u ubuntu bash -c 'cd /opt/splitpay/backend && set -a && . ./.env && set +a && npx prisma migrate deploy'
+sudo systemctl restart splitpay-api
+curl -s http://127.0.0.1:3000/api/v1/health   # {"status":"ok","db":"up","redis":"up"}
 
-# Деплой-сборка ОБЯЗАТЕЛЬНО с allowlist USDC-минтов (см. program/README.md):
-cargo build-sbf --manifest-path programs/splitpay/Cargo.toml --features usdc-allowlist
-
-anchor deploy --provider.cluster devnet
+# 2. Frontend (env уже в /opt/splitpay/frontend/.env)
+cd /opt/splitpay/frontend
+sudo -u ubuntu env HOME=/home/ubuntu npm ci --no-audit --no-fund
+sudo -u ubuntu env HOME=/home/ubuntu npm run build   # dist/ обновляется сам, nginx подхватывает
 ```
 
-CI-деплой (workflow `solana-program.yml`, ручной запуск) собирает hardened-артефакт автоматически.
+## Solana program → devnet
 
-Полученный Program ID прописать в env: `SPLITPAY_PROGRAM_ID` (backend), `VITE_SPLITPAY_PROGRAM_ID` (frontend).
+Сборка только на Linux (CI). Workflow `.github/workflows/solana-program.yml`:
+push в `program/**` → build + тесты; ручной запуск (`workflow_dispatch`,
+`deploy_devnet=true`) → hardened-сборка (`--features usdc-allowlist`) и деплой.
+Требуется секрет `SOLANA_DEPLOYER_KEYPAIR` в настройках репозитория.
 
-## 5. Helius webhook
+После деплоя Program ID прописать:
+- `/opt/splitpay/backend/.env` → `SPLITPAY_PROGRAM_ID` (+ `systemctl restart splitpay-api`)
+- `/opt/splitpay/frontend/.env` → `VITE_SPLITPAY_PROGRAM_ID` (+ пересборка frontend)
 
-1. Helius Dashboard → Webhooks → Create
-2. Type: **Enhanced**, addresses: Program ID + USDC mint
-3. URL: `https://splitpay-api.onrender.com/api/v1/webhooks/helius`
-4. Secret сохранить в `HELIUS_WEBHOOK_SECRET`
+## Helius webhook
 
-## 6. Чеклист прод-деплоя
+1. Helius Dashboard → Webhooks → Create: тип **Enhanced**, addresses = Program ID + USDC mint
+2. URL: `https://52-87-49-59.sslip.io/api/v1/webhooks/helius`
+3. Secret — в `HELIUS_WEBHOOK_SECRET` (backend `.env`). Эндпоинт fail-closed:
+   без секрета отвечает 401 в любом окружении.
+4. Без webhook подтверждение платежей работает через BullMQ-поллинг (запасной канал).
 
-- [x] RDS создан, `DATABASE_URL` проверен (`npx prisma migrate deploy` проходит)
-- [x] Redis: Render Key Value добавлен в render.yaml (создаётся автоматически)
-- [ ] Blueprint задеплоен, health check зелёный
+## Прод-окружение backend (.env на инстансе)
+
+`NODE_ENV=production`, `DATABASE_URL` (RDS, мастер-пароль — в `.env.production.local`),
+`REDIS_URL=redis://127.0.0.1:6379`, `JWT_SECRET` (сильный, обязателен — код падает без него),
+`CORS_ORIGIN=https://52-87-49-59.sslip.io`, `SOLANA_RPC_URL`, `USDC_MINT` (devnet),
+`HELIUS_API_KEY`/`HELIUS_WEBHOOK_SECRET`, `SPLITPAY_PROGRAM_ID`.
+
+## Масштабирование (цель: 5000 пользователей)
+
+Текущих ресурсов (t3.medium + db.t3.micro) достаточно с запасом: это тысячи
+пользователей и сотни одновременных соединений. Точки роста при превышении:
+RDS → db.t3.small; EC2 → t3.large или вынос Redis на ElastiCache/Render KV;
+backend за ALB в 2 инстанса (Redis-адаптер WS уже готов к multi-instance).
+
+## Чеклист состояния
+
+- [x] EC2 развёрнут, backend+frontend обновлены, HTTPS работает
+- [x] RDS: пароль ротирован (17.10), read-only пользователь `splitpay_readonly`
+- [x] RDS SG закрыт с интернета (только EC2 + IP владельца)
+- [x] Smoke-тесты API end-to-end (17.10): auth, группы, расходы, расчёты, security-правила
 - [ ] Program задеплоен на devnet, Program ID в env
-- [ ] Helius webhook настроен и шлёт события
-- [ ] Фронт открывается, логин/регистрация работают
-- [ ] Mainnet-переход: USDC mint → `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`, RPC → Helius mainnet, программа → `anchor deploy --provider.cluster mainnet`
+- [ ] Helius webhook настроен
+- [ ] Реальный devnet-платёж USDC через приложение (2 кошелька Phantom)

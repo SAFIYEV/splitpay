@@ -10,7 +10,7 @@
 | Backend | NestJS + Prisma + PostgreSQL |
 | Кэш/Очереди | Redis (BullMQ, Socket.io adapter) |
 | Blockchain | Solana (Anchor) + USDC (SPL Token) + Helius |
-| Инфраструктура | Render (backend/frontend) + AWS RDS + ElastiCache |
+| Инфраструктура | AWS EC2 (backend/frontend/nginx) + AWS RDS PostgreSQL |
 
 ## Структура
 
@@ -49,5 +49,6 @@ npm run dev
 
 - [Техническая спецификация](docs/SPLITPAY_TECH_SPEC.md)
 - [Архитектурные решения](docs/ARCHITECTURE.md)
-- [Деплой в продакшн (Render + AWS)](docs/DEPLOY.md)
+- [Продакшн-деплой (AWS EC2 + RDS)](docs/DEPLOY.md)
+- [Доступ к БД (read-only) и SQL-запросы](docs/DATABASE.md)
 - [Solana program: сборка и деплой](program/README.md)
