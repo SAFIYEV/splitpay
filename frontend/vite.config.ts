@@ -30,24 +30,11 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
-        // Cache last API responses for offline access
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/'),
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'splitpay-api',
-              networkTimeoutSeconds: 8,
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 7,
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-        ],
-      },
+      // API responses are deliberately NOT cached by the service worker:
+      // authorized payloads contain PII/balances, the cache key cannot
+      // distinguish users, and stale financial data is worse than no data.
+      // Only static assets are precached.
+      workbox: {},
     }),
   ],
   resolve: {

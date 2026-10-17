@@ -75,10 +75,10 @@ services:
         sync: false
 
   # ---------- Redis (Render Key Value) ----------
+  # Без ipAllowList внешний доступ закрыт: backend подключается по приватной
+  # сети Render через fromService.connectionString. Локальная разработка
+  # использует Redis из docker-compose, а не продакшн-инстанс.
   - type: redis
     name: splitpay-redis
     plan: starter
     maxmemoryPolicy: noeviction
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: everywhere

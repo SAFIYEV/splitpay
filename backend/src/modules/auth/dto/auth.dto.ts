@@ -68,7 +68,7 @@ export class UpdateMeDto {
   @IsUrl({ require_tld: false })
   avatar?: string;
 
-  @IsOptional()
-  @IsString()
-  walletAddress?: string;
+  // NOTE: walletAddress is deliberately absent — a wallet can only be linked
+  // by proving ownership via the challenge + signature flow
+  // (POST /auth/wallet/challenge, then POST /auth/wallet/link).
 }

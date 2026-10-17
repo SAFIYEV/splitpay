@@ -73,22 +73,38 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /** Link a wallet to the account after a signed ownership challenge
+   *  (backend verifies the signature — arbitrary addresses are rejected). */
+  async function linkWallet(walletAddress: string, signatureBase58: string) {
+    const { data } = await api.post<User>('/auth/wallet/link', {
+      walletAddress,
+      signature: signatureBase58,
+    })
+    setUser(data)
+  }
+
   async function fetchMe() {
     if (!tokens.value?.accessToken) return
     const { data } = await api.get<User>('/auth/me')
     setUser(data)
   }
 
-  async function updateProfile(patch: Partial<Pick<User, 'displayName' | 'avatar' | 'walletAddress'>>) {
+  async function updateProfile(patch: Partial<Pick<User, 'displayName' | 'avatar'>>) {
     const { data } = await api.patch<User>('/auth/me', patch)
     setUser(data)
   }
 
   function logout() {
+    const refreshToken = tokens.value?.refreshToken
     user.value = null
     tokens.value = null
     tokenStorage.clear()
     profileStorage.clear()
+    // Drop service-worker cached API responses so nothing personal survives
+    // logout on a shared device.
+    if ('caches' in window) void caches.delete('splitpay-api').catch(() => {})
+    // Best-effort server-side revocation of the refresh grant.
+    if (refreshToken) void api.post('/auth/logout', { refreshToken }).catch(() => {})
   }
 
   return {
@@ -101,6 +117,7 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     walletChallenge,
     walletVerify,
+    linkWallet,
     fetchMe,
     updateProfile,
     logout,

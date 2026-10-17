@@ -51,8 +51,14 @@ Solana (devnet → mainnet) через Helius RPC + Webhooks
 cd program
 anchor build
 anchor keys sync            # синхронизирует program id в declare_id! и Anchor.toml
+
+# Деплой-сборка ОБЯЗАТЕЛЬНО с allowlist USDC-минтов (см. program/README.md):
+cargo build-sbf --manifest-path programs/splitpay/Cargo.toml --features usdc-allowlist
+
 anchor deploy --provider.cluster devnet
 ```
+
+CI-деплой (workflow `solana-program.yml`, ручной запуск) собирает hardened-артефакт автоматически.
 
 Полученный Program ID прописать в env: `SPLITPAY_PROGRAM_ID` (backend), `VITE_SPLITPAY_PROGRAM_ID` (frontend).
 

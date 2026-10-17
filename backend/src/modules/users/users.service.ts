@@ -2,9 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
+// Public profiles never expose email: it stays available only via /auth/me.
 const publicUserSelect = {
   id: true,
-  email: true,
   displayName: true,
   avatar: true,
   walletAddress: true,
@@ -28,10 +28,13 @@ export class UsersService {
   }
 
   search(q: string) {
+    // Minimum query length prevents enumerating the whole user base page by page.
+    if (q.trim().length < 2) {
+      return [];
+    }
     return this.prisma.user.findMany({
       where: {
         OR: [
-          { email: { contains: q, mode: 'insensitive' } },
           { displayName: { contains: q, mode: 'insensitive' } },
           { walletAddress: { contains: q, mode: 'insensitive' } },
         ],

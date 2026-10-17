@@ -34,6 +34,20 @@ program/
 - `create_settlement(group_id, amount)` — member → member settlement request (Pending)
 - `complete_settlement()` — payer signs; CPI SPL `transfer_checked` of `amount` USDC from payer ATA to recipient ATA; marks Completed
 - `dispute_settlement()` — from or to; Pending → Disputed
+- `close_settlement()` — Pending: payer only (cancel); Completed/Disputed: either party. Reclaims rent and frees the (from, to, group) PDA for a new settlement
+
+## USDC mint allowlist (`usdc-allowlist` feature)
+
+`complete_settlement` must never accept a look-alike mint: any fake 6-decimals
+mint passes `transfer_checked` while the settlement flips to Completed. The
+hard allowlist (mainnet `EPjFWdd5...` + devnet `4zMMC9sr...`) is compiled in
+with the cargo feature `usdc-allowlist`:
+
+- **Localnet tests**: default build (feature OFF) — tests use a freely-mintable
+  test mint. Plain `anchor build` / `anchor test` stays green.
+- **Any deploy**: build with the feature ON. The CI devnet deploy does this via
+  `cargo build-sbf --features usdc-allowlist` (see
+  `.github/workflows/solana-program.yml`). Never deploy a default build.
 
 ## Prerequisites (WSL2 — native Windows is not supported by the Solana toolchain)
 

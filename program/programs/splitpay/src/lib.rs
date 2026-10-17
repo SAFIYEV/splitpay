@@ -69,4 +69,11 @@ pub mod splitpay {
     pub fn dispute_settlement(ctx: Context<DisputeSettlement>) -> Result<()> {
         instructions::dispute_settlement::handler(ctx)
     }
+
+    /// Close a settlement account and reclaim its rent for the payer. Pending:
+    /// payer only (cancel). Completed/Disputed: either party. Closing frees the
+    /// (from, to, group) PDA so a new settlement can be created for the pair.
+    pub fn close_settlement(ctx: Context<CloseSettlement>) -> Result<()> {
+        instructions::close_settlement::handler(ctx)
+    }
 }

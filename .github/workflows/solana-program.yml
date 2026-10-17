@@ -53,6 +53,8 @@ jobs:
         run: anchor keys sync
 
       - name: Run tests (local validator)
+        # Тесты намеренно идут без фичи usdc-allowlist: на локальном
+        # валидаторе используется свободно-минтимый тестовый минт.
         run: anchor test
 
       - name: Upload build artifacts
@@ -63,6 +65,14 @@ jobs:
             program/target/deploy/*.so
             program/target/idl/*.json
             program/target/types/*.ts
+
+      - name: Build hardened program for deploy
+        # Деплой-сборка ОБЯЗАТЕЛЬНО с usdc-allowlist: ограничивает
+        # complete_settlement реальными USDC-минтами (mainnet + devnet).
+        # --manifest-path обязателен: корень — виртуальный workspace,
+        # cargo не принимает --features на его уровне.
+        if: github.event_name == 'workflow_dispatch' && inputs.deploy_devnet
+        run: cargo build-sbf --manifest-path programs/splitpay/Cargo.toml --features usdc-allowlist
 
       - name: Deploy to devnet
         if: github.event_name == 'workflow_dispatch' && inputs.deploy_devnet

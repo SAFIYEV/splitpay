@@ -198,6 +198,7 @@ export class GroupsService {
   }
 
   private generateInviteCode(): string {
-    return randomBytes(4).toString('hex');
+    // 64 bits of entropy — invite codes are bearer capabilities for joining.
+    return randomBytes(8).toString('hex');
   }
 }

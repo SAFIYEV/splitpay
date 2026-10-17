@@ -105,6 +105,7 @@ export function normalizeSettlement(raw: unknown): Settlement {
     toUserData: normalizeUser(r.toUser),
     amount: num(r.amount),
     status: (str(r.status) ?? 'pending') as Settlement['status'],
+    createdBy: str(r.createdById),
     solanaTransactionId: str(r.solanaTransactionId),
     solanaSettlementPDA: str(r.solanaSettlementPDA),
     notes: str(r.notes),

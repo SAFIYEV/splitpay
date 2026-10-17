@@ -135,6 +135,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { f7 } from 'framework7-vue'
 import { apiErrorMessage } from '@/services/api'
+import { assertWalletChallenge } from '@/services/challenge'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import type { ConnectableWallet } from '@/services/wallet-adapter'
@@ -167,7 +168,7 @@ function forgotPassword() {
   f7.dialog.alert('Ссылка для сброса пароля будет отправлена на ваш email.', 'Забыли пароль?')
 }
 
-/** Wallet auth flow: connect → challenge → sign → verify (spec 8.1). */
+/** Wallet auth flow: connect → challenge → validate → sign → verify (spec 8.1). */
 async function connectWith(w: ConnectableWallet) {
   walletError.value = null
   try {
@@ -175,6 +176,9 @@ async function connectWith(w: ConnectableWallet) {
     const address = wallet.address
     if (!address) throw new Error('Кошелёк не вернул адрес')
     const { message } = await auth.walletChallenge(address)
+    // Never sign blindly: the challenge must be a well-formed SplitPay
+    // message for this wallet, issued within the last minutes.
+    assertWalletChallenge(message, address)
     const signature = await wallet.signMessage(message)
     await auth.walletVerify(address, signature)
     walletSheetOpen.value = false

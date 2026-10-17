@@ -141,9 +141,14 @@ model Settlement {
   groupId              String
   fromUserId           String
   toUserId             String
+  // Who recorded the settlement. Off-chain completion requires confirmation
+  // by the counterparty — never by the creator. Legacy rows (pre-migration)
+  // have an empty string and keep requiring on-chain completion.
+  createdById          String           @default("")
   amount               Decimal          @db.Decimal(19, 6)
   status               SettlementStatus @default(pending)
-  solanaTransactionId  String?
+  // One Solana signature pays exactly one settlement (replay protection).
+  solanaTransactionId  String?           @unique
   solanaSettlementPDA  String?
   completedAt          DateTime?
   expiresAt            DateTime?

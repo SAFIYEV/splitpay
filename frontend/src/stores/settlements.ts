@@ -51,8 +51,16 @@ export const useSettlementsStore = defineStore('settlements', () => {
   }
 
   /** Step 1 of the on-chain payment flow: get a prepared transaction to sign. */
-  async function prepareTransaction(id: string): Promise<{ transaction: string }> {
-    const { data } = await api.post<{ transaction: string }>(`/settlements/${id}/prepare-tx`)
+  async function prepareTransaction(id: string): Promise<{
+    transaction: string
+    fromTokenAccount: string
+    toTokenAccount: string
+  }> {
+    const { data } = await api.post<{
+      transaction: string
+      fromTokenAccount: string
+      toTokenAccount: string
+    }>(`/settlements/${id}/prepare-tx`)
     return data
   }
 

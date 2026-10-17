@@ -60,6 +60,19 @@ export class AuthController {
     return this.auth.refresh(dto);
   }
 
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Post('logout')
+  logout(@Body() dto: RefreshDto) {
+    return this.auth.logout(dto);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('wallet/link')
+  linkWallet(@CurrentUser('id') userId: string, @Body() dto: WalletVerifyDto) {
+    return this.auth.linkWallet(userId, dto);
+  }
+
   @Get('me')
   me(@CurrentUser() user: User) {
     return this.auth.sanitize(user);

@@ -9,8 +9,8 @@ pub enum SettlementStatus {
 
 /// PDA seeds: [b"splitpay-settlement", from.key().as_ref(), to.key().as_ref(), group.key().as_ref()]
 /// Note: this seed layout allows exactly one open settlement account per
-/// (from, to, group) triple; close or dispute-resolve the account before
-/// creating the next settlement between the same pair.
+/// (from, to, group) triple; `close_settlement` frees the PDA (and rent) so
+/// the next settlement between the same pair can be created.
 #[account]
 pub struct Settlement {
     pub from: Pubkey,

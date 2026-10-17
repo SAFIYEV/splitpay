@@ -9,16 +9,19 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { timingSafeEqual } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SettlementsService } from '../settlements/settlements.service';
 import { Public } from '../../common/decorators/public.decorator';
 
 /**
  * Receives Helius enhanced-transaction webhooks for settlement signatures.
+ * The webhook never completes settlements directly — it only enqueues a
+ * verification job, which requires the parsed on-chain payment to match the
+ * settlement (mint, amount, payer ATA, recipient ATA).
  *
- * TODO: set HELIUS_WEBHOOK_SECRET and register this endpoint as the Helius
- * webhook URL (spec 5.2 flow step 5). Without the secret configured, the
- * endpoint only accepts requests in non-production environments.
+ * Requires HELIUS_WEBHOOK_SECRET in every environment: without it the
+ * endpoint fails closed (401).
  */
 @Public()
 @Controller('webhooks')
@@ -37,38 +40,42 @@ export class HeliusWebhookController {
     @Headers('authorization') authorization: string | undefined,
     @Body() payload: unknown,
   ) {
-    const secret = this.config.get<string>('helius.webhookSecret');
-    if (secret) {
-      if (authorization !== secret) {
-        throw new UnauthorizedException('Invalid webhook secret');
-      }
-    } else if (this.config.get<string>('nodeEnv') === 'production') {
-      throw new UnauthorizedException(
-        'HELIUS_WEBHOOK_SECRET must be configured in production',
-      );
-    }
+    this.assertAuthorized(authorization);
 
     const transactions = Array.isArray(payload) ? payload : [payload];
-    let processed = 0;
+    let queued = 0;
     for (const tx of transactions) {
       const signature = (tx as { signature?: string })?.signature;
       if (!signature) {
         continue;
       }
       const settlement = await this.prisma.settlement.findFirst({
-        where: {
-          solanaTransactionId: signature,
-          status: { in: ['pending', 'processing'] },
-        },
+        where: { solanaTransactionId: signature, status: 'processing' },
+        select: { id: true },
       });
       if (settlement) {
-        await this.settlements.markCompletedFromChain(settlement.id, signature);
-        processed += 1;
+        await this.settlements.enqueueVerification(settlement.id, signature);
+        queued += 1;
       }
     }
     this.logger.log(
-      `Helius webhook: ${transactions.length} tx received, ${processed} settlements completed`,
+      `Helius webhook: ${transactions.length} tx received, ${queued} verification jobs queued`,
     );
-    return { received: transactions.length, processed };
+    return { received: transactions.length, queued };
+  }
+
+  private assertAuthorized(authorization: string | undefined) {
+    const secret = this.config.get<string>('helius.webhookSecret');
+    if (!secret) {
+      throw new UnauthorizedException('Webhook secret is not configured');
+    }
+    const received = Buffer.from(authorization ?? '');
+    const expected = Buffer.from(secret);
+    if (
+      received.length !== expected.length ||
+      !timingSafeEqual(received, expected)
+    ) {
+      throw new UnauthorizedException('Invalid webhook secret');
+    }
   }
 }

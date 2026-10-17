@@ -22,7 +22,9 @@ export class NotificationsController {
     unread: boolean,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
   ) {
-    return this.notifications.listForUser(userId, unread, limit);
+    // Clamp the page size — an unbounded `take` is a resource-consumption vector.
+    const clamped = Math.min(Math.max(limit, 1), 100);
+    return this.notifications.listForUser(userId, unread, clamped);
   }
 
   @Patch(':id/read')

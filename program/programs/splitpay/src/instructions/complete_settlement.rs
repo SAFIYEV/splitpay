@@ -7,6 +7,22 @@ use anchor_spl::{
 use crate::errors::SplitpayError;
 use crate::state::{Settlement, SettlementStatus};
 
+/// Well-known USDC mints. Without this allowlist the payer could complete a
+/// settlement with a worthless look-alike mint (any fake mint with 6 decimals
+/// passes `transfer_checked`) while the on-chain record flips to Completed.
+///
+/// Enforcement is compiled in with the `usdc-allowlist` cargo feature: OFF for
+/// localnet tests (which use a freely-mintable test mint), ON for every build
+/// that gets deployed (see .github/workflows/solana-program.yml).
+pub mod usdc_mints {
+    use anchor_lang::prelude::*;
+
+    /// USDC on mainnet-beta (Circle).
+    pub const MAINNET: Pubkey = pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+    /// USDC on devnet (Circle faucet).
+    pub const DEVNET: Pubkey = pubkey!("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+}
+
 #[derive(Accounts)]
 pub struct CompleteSettlement<'info> {
     #[account(
@@ -55,6 +71,15 @@ pub fn handler(ctx: Context<CompleteSettlement>) -> Result<()> {
     require!(
         settlement.status == SettlementStatus::Pending,
         SplitpayError::SettlementNotPending
+    );
+
+    // Reject look-alike mints. Compiled out on localnet (test mint); the
+    // `usdc-allowlist` feature is mandatory for deployed builds.
+    #[cfg(feature = "usdc-allowlist")]
+    require!(
+        ctx.accounts.usdc_mint.key() == usdc_mints::MAINNET
+            || ctx.accounts.usdc_mint.key() == usdc_mints::DEVNET,
+        SplitpayError::InvalidMint
     );
 
     // CPI: transfer `settlement.amount` USDC from the payer's ATA to the

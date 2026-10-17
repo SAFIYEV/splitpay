@@ -15,10 +15,10 @@
           </div>
         </div>
 
-        <h1 class="m-0 text-2xl font-bold">Платёж отправлен!</h1>
+        <h1 class="m-0 text-2xl font-bold">{{ success.manual ? 'Платёж записан!' : 'Платёж отправлен!' }}</h1>
         <p class="sp-positive m-0 mt-3 text-3xl font-bold">{{ formatUsdc(success.amount) }}</p>
         <p class="mt-2 mb-8 text-[15px]" style="color: var(--color-sub)">
-          {{ success.toName }} получит ваш платёж
+          {{ success.manual ? `${success.toName} должен подтвердить получение` : `${success.toName} получит ваш платёж` }}
         </p>
 
         <a
@@ -198,6 +198,7 @@ import UserAvatar from '@/components/common/UserAvatar.vue'
 import UsdcChip from '@/components/common/UsdcChip.vue'
 import { apiErrorMessage } from '@/services/api'
 import { estimateTransferFeeSol, sendBase64Transaction, SOLANA_NETWORK } from '@/services/solana'
+import { toMicroUsdc, verifyPreparedTransfer } from '@/services/tx-verify'
 import { formatUsdc, truncateAddress } from '@/services/utils/format'
 import type { ConnectableWallet } from '@/services/wallet-adapter'
 import { useAuthStore } from '@/stores/auth'
@@ -226,7 +227,7 @@ const errorText = ref<string | null>(null)
 const recipientPopupOpen = ref(false)
 const walletSheetOpen = ref(false)
 
-const success = ref<{ amount: number; toName: string; signature?: string } | null>(null)
+const success = ref<{ amount: number; toName: string; signature?: string; manual?: boolean } | null>(null)
 
 /** Network-fee estimate in SOL, derived from recent on-chain prioritization fees. */
 const feeEstimate = ref<number | null>(null)
@@ -272,7 +273,7 @@ async function connectWallet(w: ConnectableWallet) {
   }
 }
 
-/** On-chain flow (spec 5.2): create → prepare-tx → sign → broadcast → confirm. */
+/** On-chain flow (spec 5.2): create → prepare-tx → verify → sign → broadcast → confirm. */
 async function payWithWallet() {
   paying.value = true
   errorText.value = null
@@ -284,10 +285,20 @@ async function payWithWallet() {
     })
 
     stepText.value = 'Готовим транзакцию…'
-    const { transaction } = await settlementsStore.prepareTransaction(settlement.id)
+    const prepared = await settlementsStore.prepareTransaction(settlement.id)
+
+    // Never sign blindly: the transaction must provably be the settlement's
+    // exact USDC transfer before it reaches the wallet prompt.
+    stepText.value = 'Проверяем транзакцию…'
+    verifyPreparedTransfer(prepared.transaction, {
+      amountMicro: toMicroUsdc(settlement.amount),
+      fromWallet: wallet.address ?? '',
+      fromTokenAccount: prepared.fromTokenAccount,
+      toTokenAccount: prepared.toTokenAccount,
+    })
 
     stepText.value = `Подтвердите в ${wallet.walletName}…`
-    const signed = await wallet.signTransaction(transaction)
+    const signed = await wallet.signTransaction(prepared.transaction)
 
     stepText.value = 'Отправляем в Solana…'
     const signature = await sendBase64Transaction(signed)
@@ -305,19 +316,18 @@ async function payWithWallet() {
   }
 }
 
-/** Off-chain fallback: record the payment, settle on-chain later. */
+/** Off-chain fallback: record the payment; the recipient confirms receipt. */
 async function recordManually() {
   paying.value = true
   errorText.value = null
   try {
-    const settlement = await settlementsStore.createSettlement(groupId, {
+    await settlementsStore.createSettlement(groupId, {
       toUserId: toUserId.value,
       amount: amount.value,
       notes: 'Записано вручную',
     })
-    await settlementsStore.updateSettlement(settlement.id, { status: 'completed' })
     await settlementsStore.fetchBalance(groupId).catch(() => {})
-    success.value = { amount: amount.value, toName: displayName(toUserId.value) }
+    success.value = { amount: amount.value, toName: displayName(toUserId.value), manual: true }
   } catch (e) {
     errorText.value = apiErrorMessage(e)
   } finally {

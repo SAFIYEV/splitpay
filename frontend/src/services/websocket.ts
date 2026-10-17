@@ -1,4 +1,5 @@
 import { io, type Socket } from 'socket.io-client'
+import { tokenStorage } from '@/services/api'
 import { useExpensesStore } from '@/stores/expenses'
 import { useGroupsStore } from '@/stores/groups'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -8,17 +9,23 @@ import type { Expense, NotificationItem, Settlement } from '@/types'
 // Socket.io realtime client (spec 4.2). Connects with the JWT, joins
 // `join:group:{id}` rooms and dispatches server events into Pinia stores.
 
-const WS_URL = import.meta.env.VITE_WS_URL ?? 'http://localhost:3000'
+const WS_URL = import.meta.env.VITE_WS_URL ?? (import.meta.env.DEV ? 'http://localhost:3000' : undefined)
+if (!WS_URL) {
+  throw new Error('VITE_WS_URL is not configured')
+}
 
 let socket: Socket | null = null
 const joinedGroups = new Set<string>()
 
-export function connectWebSocket(token: string): Socket {
+export function connectWebSocket(_token?: string): Socket {
   if (socket?.connected) return socket
   disconnectWebSocket()
 
   socket = io(WS_URL, {
-    auth: { token },
+    // Read the freshest token on every (re)connect attempt — after a silent
+    // token refresh the old token would otherwise be replayed forever and
+    // the server (which verifies the JWT) would keep rejecting the socket.
+    auth: (cb) => cb({ token: tokenStorage.load()?.accessToken ?? '' }),
     transports: ['websocket', 'polling'],
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,

@@ -22,6 +22,8 @@ pub enum SplitpayError {
     SettlementNotPending,
     #[msg("Signer is not authorized for this action")]
     Unauthorized,
+    #[msg("Mint is not an accepted USDC mint")]
+    InvalidMint,
     #[msg("Arithmetic overflow")]
     ArithmeticOverflow,
 }

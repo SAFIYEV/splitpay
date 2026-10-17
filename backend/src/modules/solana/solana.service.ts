@@ -45,6 +45,44 @@ export interface OnChainStatus {
   error?: string;
 }
 
+export interface PaymentExpectation {
+  fromWallet: string;
+  toWallet: string;
+  amountMicro: bigint;
+}
+
+/**
+ * 'verified' — the parsed transaction proves the exact USDC transfer;
+ * 'pending' — not confirmed yet, retry later;
+ * 'failed' — the confirmed transaction can never satisfy the settlement.
+ */
+export type PaymentVerification =
+  | { status: 'verified' }
+  | { status: 'pending' }
+  | { status: 'failed'; reason: string };
+
+/** Minimal structural view of a jsonParsed transaction (spl-token parsed). */
+interface ParsedTransactionView {
+  meta?: { err?: unknown } | null;
+  transaction?: {
+    message?: {
+      instructions?: Array<{
+        program?: string;
+        parsed?: {
+          type?: string;
+          info?: {
+            mint?: string;
+            source?: string;
+            destination?: string;
+            authority?: string;
+            tokenAmount?: { amount?: string; decimals?: number };
+          };
+        };
+      }>;
+    };
+  };
+}
+
 @Injectable()
 export class SolanaService {
   private readonly logger = new Logger(SolanaService.name);
@@ -174,9 +212,79 @@ export class SolanaService {
   }
 
   /**
+   * Verifies that `signatureBase58` pays exactly `expected.amountMicro` USDC
+   * from the payer's ATA to the recipient's ATA via an SPL `transferChecked`
+   * signed by the payer. A settlement may be marked completed only after this
+   * returns 'verified' — a bare confirmed signature proves nothing.
+   */
+  async verifySettlementPayment(
+    signatureBase58: string,
+    expected: PaymentExpectation,
+  ): Promise<PaymentVerification> {
+    const status = await this.getSignatureStatus(signatureBase58);
+    if (!status.found) {
+      return { status: 'pending' };
+    }
+    if (status.error) {
+      return { status: 'failed', reason: `on-chain error: ${status.error}` };
+    }
+    if (status.confirmationStatus === 'processed') {
+      return { status: 'pending' };
+    }
+
+    let tx: ParsedTransactionView | null;
+    try {
+      tx = (await this.rpc
+        .getTransaction(signatureBase58 as never, {
+          encoding: 'jsonParsed',
+          maxSupportedTransactionVersion: 0,
+          commitment: 'confirmed',
+        })
+        .send()) as unknown as ParsedTransactionView | null;
+    } catch (err) {
+      this.logger.warn(
+        `getTransaction failed for ${signatureBase58}: ${(err as Error).message}`,
+      );
+      return { status: 'pending' };
+    }
+    if (!tx) {
+      return { status: 'pending' };
+    }
+    if (tx.meta?.err) {
+      return { status: 'failed', reason: 'transaction failed on-chain' };
+    }
+
+    const [fromAta, toAta] = await Promise.all([
+      this.findAssociatedTokenAccount(expected.fromWallet),
+      this.findAssociatedTokenAccount(expected.toWallet),
+    ]);
+
+    const instructions = tx.transaction?.message?.instructions ?? [];
+    const paid = instructions.some((ix) => {
+      if (ix.program !== 'spl-token' || ix.parsed?.type !== 'transferChecked') {
+        return false;
+      }
+      const info = ix.parsed.info ?? {};
+      return (
+        info.mint === this.usdcMint &&
+        info.source === fromAta &&
+        info.destination === toAta &&
+        info.authority === expected.fromWallet &&
+        info.tokenAmount?.decimals === USDC_DECIMALS &&
+        BigInt(info.tokenAmount?.amount ?? '0') === expected.amountMicro
+      );
+    });
+
+    return paid
+      ? { status: 'verified' }
+      : {
+          status: 'failed',
+          reason: 'no matching USDC transferChecked instruction',
+        };
+  }
+
+  /**
    * Checks on-chain status of a transaction signature.
-   * TODO: once HELIUS_API_KEY is provisioned, prefer Helius parsed
-   * transactions for richer verification (amount, token, recipient).
    */
   async getSignatureStatus(signatureBase58: string): Promise<OnChainStatus> {
     try {

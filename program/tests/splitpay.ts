@@ -388,6 +388,99 @@ describe("splitpay", () => {
     }
   });
 
+  it("closes a completed settlement (cleanup by the recipient)", async () => {
+    // The authority->member settlement is Completed; the recipient closes it
+    // and the rent returns to `from` (authority), who paid it at creation.
+    await program.methods
+      .closeSettlement()
+      .accounts({
+        settlement: settlementPda,
+        caller: member.publicKey,
+        rentReceiver: authority.publicKey,
+      })
+      .signers([member])
+      .rpc();
+
+    const closed = await provider.connection.getAccountInfo(settlementPda);
+    assert.isNull(closed);
+  });
+
+  it("recreates a settlement between the same pair after close", async () => {
+    await program.methods
+      .createSettlement(groupId, new BN(3_000_000))
+      .accounts({
+        group: groupPda,
+        settlement: settlementPda,
+        to: member.publicKey,
+        from: authority.publicKey,
+        systemProgram: SystemProgram.programId,
+      })
+      .rpc();
+
+    const settlement = await program.account.settlement.fetch(settlementPda);
+    assert.equal(settlement.amount.toNumber(), 3_000_000);
+    assert.deepEqual(settlement.status, { pending: {} });
+  });
+
+  it("rejects closing a pending settlement by the recipient", async () => {
+    try {
+      await program.methods
+        .closeSettlement()
+        .accounts({
+          settlement: settlementPda,
+          caller: member.publicKey,
+          rentReceiver: authority.publicKey,
+        })
+        .signers([member])
+        .rpc();
+      assert.fail("expected Unauthorized");
+    } catch (err) {
+      expect(err.toString()).to.include("Unauthorized");
+    }
+  });
+
+  it("cancels a pending settlement (payer close)", async () => {
+    await program.methods
+      .closeSettlement()
+      .accounts({
+        settlement: settlementPda,
+        caller: authority.publicKey,
+        rentReceiver: authority.publicKey,
+      })
+      .rpc();
+
+    const closed = await provider.connection.getAccountInfo(settlementPda);
+    assert.isNull(closed);
+  });
+
+  it("closes a disputed settlement (either party)", async () => {
+    const [disputeSettlementPda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("splitpay-settlement"),
+        member.publicKey.toBuffer(),
+        authority.publicKey.toBuffer(),
+        groupPda.toBuffer(),
+      ],
+      program.programId
+    );
+
+    // The recipient of the disputed settlement (authority) closes it;
+    // rent goes back to the payer (member).
+    await program.methods
+      .closeSettlement()
+      .accounts({
+        settlement: disputeSettlementPda,
+        caller: authority.publicKey,
+        rentReceiver: member.publicKey,
+      })
+      .rpc();
+
+    const closed = await provider.connection.getAccountInfo(
+      disputeSettlementPda
+    );
+    assert.isNull(closed);
+  });
+
   it("removes a member", async () => {
     await program.methods
       .removeMember(groupId, member.publicKey)

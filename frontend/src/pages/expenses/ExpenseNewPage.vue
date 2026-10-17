@@ -370,20 +370,22 @@ async function submitExpense() {
   }
 }
 
-/** Доход: участник вернул мне долг — settlement от него ко мне, сразу completed. */
+/** Доход: участник вернул мне долг — settlement от него ко мне; завершается
+ *  после подтверждения плательщиком (контрагент подтверждает запись). */
 async function submitIncome() {
   saving.value = true
   errorText.value = null
   try {
-    const settlement = await settlementsStore.createSettlement(groupId, {
+    await settlementsStore.createSettlement(groupId, {
       fromUserId: fromUserId.value,
       toUserId: auth.user!.id,
       amount: amount.value,
       notes: description.value.trim() || 'Возврат долга',
     })
-    await settlementsStore.updateSettlement(settlement.id, { status: 'completed' })
     await settlementsStore.fetchBalance(groupId).catch(() => {})
-    f7.toast.create({ text: 'Доход записан', position: 'center', closeTimeout: 1500 }).open()
+    f7.toast
+      .create({ text: 'Записано — плательщик подтвердит оплату', position: 'center', closeTimeout: 2000 })
+      .open()
     props.f7router.back()
   } catch (e) {
     errorText.value = apiErrorMessage(e)

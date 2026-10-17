@@ -8,7 +8,12 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { createPublicKey, randomBytes, verify as cryptoVerify } from 'node:crypto';
+import {
+  createPublicKey,
+  randomBytes,
+  randomUUID,
+  verify as cryptoVerify,
+} from 'node:crypto';
 import { getAddressEncoder, getBase58Encoder, isAddress } from '@solana/kit';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
@@ -133,17 +138,29 @@ export class AuthService {
     throw new NotImplementedException('Google OAuth not implemented yet');
   }
 
+  /**
+   * Rotates the refresh grant: the presented token must be the latest stored
+   * grant for the user; it is revoked and a fresh pair is issued. A replayed
+   * (already-rotated or logged-out) token is simply rejected.
+   */
   async refresh(dto: RefreshDto) {
     let payload: JwtPayload;
     try {
       payload = await this.jwt.verifyAsync<JwtPayload>(dto.refreshToken, {
         secret: this.config.get<string>('jwt.secret'),
+        algorithms: ['HS256'],
       });
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
-    if (payload.type !== 'refresh') {
+    if (payload.type !== 'refresh' || !payload.jti) {
       throw new UnauthorizedException('Invalid token type');
+    }
+    const grant = await this.redis.get(
+      this.refreshGrantKey(payload.sub, payload.jti),
+    );
+    if (!grant) {
+      throw new UnauthorizedException('Refresh token expired or revoked');
     }
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
@@ -151,27 +168,70 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
+    await this.redis.del(this.refreshGrantKey(payload.sub, payload.jti));
     return this.withTokens(user);
   }
 
-  async updateMe(userId: string, dto: UpdateMeDto) {
-    if (dto.walletAddress) {
-      if (!isAddress(dto.walletAddress)) {
-        throw new UnauthorizedException('Invalid Solana wallet address');
-      }
-      const taken = await this.prisma.user.findUnique({
-        where: { walletAddress: dto.walletAddress },
+  /** Revokes the presented refresh grant. Idempotent by design. */
+  async logout(dto: RefreshDto) {
+    try {
+      const payload = await this.jwt.verifyAsync<JwtPayload>(dto.refreshToken, {
+        secret: this.config.get<string>('jwt.secret'),
+        algorithms: ['HS256'],
       });
-      if (taken && taken.id !== userId) {
-        throw new ConflictException('Wallet address already in use');
+      if (payload.type === 'refresh' && payload.jti) {
+        await this.redis.del(this.refreshGrantKey(payload.sub, payload.jti));
       }
+    } catch {
+      // Unknown/invalid tokens are already unusable — logout stays quiet.
     }
+    return { loggedOut: true };
+  }
+
+  /**
+   * Links a wallet to the current account, but only after the user proved
+   * ownership via the challenge + signature flow (same as wallet login).
+   * Setting an arbitrary address without a signature is not possible.
+   */
+  async linkWallet(userId: string, dto: WalletVerifyDto) {
+    if (!isAddress(dto.walletAddress)) {
+      throw new UnauthorizedException('Invalid Solana wallet address');
+    }
+    const message = await this.redis.get(
+      this.challengeKey(dto.walletAddress),
+    );
+    if (!message) {
+      throw new UnauthorizedException('Challenge expired or not found');
+    }
+    const valid = this.verifyEd25519(
+      dto.walletAddress,
+      dto.signature,
+      message,
+    );
+    if (!valid) {
+      throw new UnauthorizedException('Invalid signature');
+    }
+    await this.redis.del(this.challengeKey(dto.walletAddress));
+
+    const taken = await this.prisma.user.findUnique({
+      where: { walletAddress: dto.walletAddress },
+    });
+    if (taken && taken.id !== userId) {
+      throw new ConflictException('Wallet address already in use');
+    }
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { walletAddress: dto.walletAddress },
+    });
+    return this.sanitize(user);
+  }
+
+  async updateMe(userId: string, dto: UpdateMeDto) {
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: {
         displayName: dto.displayName,
         avatar: dto.avatar,
-        walletAddress: dto.walletAddress,
       },
     });
     return this.sanitize(user);
@@ -187,9 +247,15 @@ export class AuthService {
       { ...base, type: 'access' } satisfies JwtPayload,
       { expiresIn: this.config.get('jwt.expiresIn') as never },
     );
+    const jti = randomUUID();
     const refreshToken = this.jwt.sign(
-      { ...base, type: 'refresh' } satisfies JwtPayload,
+      { ...base, type: 'refresh', jti } satisfies JwtPayload,
       { expiresIn: this.config.get('jwt.refreshExpiresIn') as never },
+    );
+    void this.redis.set(
+      this.refreshGrantKey(user.id, jti),
+      '1',
+      this.config.get<number>('jwt.refreshTtlSeconds'),
     );
     return { accessToken, refreshToken };
   }
@@ -201,6 +267,10 @@ export class AuthService {
 
   private challengeKey(walletAddress: string) {
     return `wallet-challenge:${walletAddress}`;
+  }
+
+  private refreshGrantKey(userId: string, jti: string) {
+    return `refresh-grant:${userId}:${jti}`;
   }
 
   private verifyEd25519(

@@ -108,6 +108,8 @@ export interface Settlement {
   toUserData?: User
   amount: number
   status: SettlementStatus
+  /** Who recorded the settlement; off-chain completion needs the counterparty. */
+  createdBy?: string
   solanaTransactionId?: string
   solanaSettlementPDA?: string
   notes?: string

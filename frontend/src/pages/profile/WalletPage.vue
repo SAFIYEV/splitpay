@@ -47,6 +47,10 @@
               <f7-icon f7="arrow_2_circlepath" size="17" style="color: var(--color-accent)" />
               <span>Обновить баланс</span>
             </button>
+            <button v-if="canLink" type="button" class="sp-row" :disabled="linking" @click="linkToAccount">
+              <f7-icon f7="link" size="17" style="color: var(--color-accent)" />
+              <span>{{ linking ? 'Привязываем…' : 'Привязать к аккаунту' }}</span>
+            </button>
             <button v-if="network === 'devnet'" type="button" class="sp-row" @click="airdrop">
               <f7-icon f7="gift_fill" size="17" style="color: var(--color-mint)" />
               <span>Запросить devnet airdrop (1 SOL)</span>
@@ -120,15 +124,30 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { f7 } from 'framework7-vue'
+import { apiErrorMessage } from '@/services/api'
+import { assertWalletChallenge } from '@/services/challenge'
 import { requestAirdrop, SOLANA_NETWORK } from '@/services/solana'
 import { truncateAddress } from '@/services/utils/format'
 import type { ConnectableWallet } from '@/services/wallet-adapter'
+import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 
 const wallet = useWalletStore()
+const auth = useAuthStore()
 const network = SOLANA_NETWORK
+
+const linking = ref(false)
+/** Linking proves wallet ownership (challenge + signature) and stores the
+ *  address on the account — needed for settlements with email-registered users. */
+const canLink = computed(
+  () =>
+    auth.isAuthenticated &&
+    wallet.isConnected &&
+    !!wallet.address &&
+    auth.user?.walletAddress !== wallet.address,
+)
 
 function walletCapabilities(w: ConnectableWallet): string {
   const caps: string[] = []
@@ -160,6 +179,24 @@ async function refreshBalance() {
     await wallet.refreshBalance()
   } catch (e) {
     f7.dialog.alert(e instanceof Error ? e.message : 'Ошибка RPC', 'Не удалось обновить баланс')
+  }
+}
+
+/** Challenge → sign → link: the backend stores the wallet only after
+ *  verifying the signature (proof of ownership, not a bare address). */
+async function linkToAccount() {
+  if (!wallet.address) return
+  linking.value = true
+  try {
+    const { message } = await auth.walletChallenge(wallet.address)
+    assertWalletChallenge(message, wallet.address)
+    const signature = await wallet.signMessage(message)
+    await auth.linkWallet(wallet.address, signature)
+    f7.toast.create({ text: 'Кошелёк привязан к аккаунту', position: 'center', closeTimeout: 1500 }).open()
+  } catch (e) {
+    f7.dialog.alert(apiErrorMessage(e), 'Не удалось привязать кошелёк')
+  } finally {
+    linking.value = false
   }
 }
 

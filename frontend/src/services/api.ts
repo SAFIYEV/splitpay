@@ -49,8 +49,16 @@ function notifyUnauthorized() {
   window.dispatchEvent(new CustomEvent('splitpay:unauthorized'))
 }
 
+// Production builds must never fall back to plain-http localhost defaults:
+// misconfiguration must fail loudly instead of leaking tokens.
+const baseURL =
+  import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3000/api/v1' : undefined)
+if (!baseURL) {
+  throw new Error('VITE_API_URL is not configured')
+}
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1',
+  baseURL,
   timeout: 15000,
 })
 

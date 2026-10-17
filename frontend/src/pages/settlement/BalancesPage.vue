@@ -105,6 +105,15 @@
             <p class="m-0 text-xs" style="color: var(--color-sub)">{{ statusLabel(s.status) }}</p>
           </div>
           <span class="text-sm font-bold">{{ formatUsdc(s.amount) }}</span>
+          <button
+            v-if="canConfirm(s)"
+            type="button"
+            class="rounded-full border-0 px-3 py-1.5 text-xs font-semibold"
+            style="background: var(--color-accent-soft); color: var(--color-accent)"
+            @click="confirmReceipt(s)"
+          >
+            Подтвердить
+          </button>
         </div>
       </div>
     </f7-page-content>
@@ -134,7 +143,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useExpensesStore } from '@/stores/expenses'
 import { useGroupsStore } from '@/stores/groups'
 import { useSettlementsStore } from '@/stores/settlements'
-import type { SettlementStatus, SuggestedDebt } from '@/types'
+import type { Settlement, SettlementStatus, SuggestedDebt } from '@/types'
 
 const props = defineProps<{ f7route: { params: { id: string } } }>()
 
@@ -187,6 +196,26 @@ async function requestPayment(debt: SuggestedDebt) {
     await settlementsStore.fetchHistory(groupId).catch(() => {})
   } catch (e) {
     f7.dialog.alert(apiErrorMessage(e), 'Не удалось создать запрос')
+  }
+}
+
+/** Off-chain completion works only as counterparty confirmation: the current
+ *  user must be a settlement party and NOT the one who created the record. */
+function canConfirm(s: Settlement): boolean {
+  const me = auth.user?.id
+  if (!me || s.status !== 'pending' || s.createdBy === me) return false
+  return s.fromUser === me || s.toUser === me
+}
+
+async function confirmReceipt(s: Settlement) {
+  try {
+    await settlementsStore.updateSettlement(s.id, { status: 'completed' })
+    await settlementsStore.fetchBalance(groupId).catch(() => {})
+    f7.toast
+      .create({ text: 'Получение подтверждено', position: 'center', closeTimeout: 1500 })
+      .open()
+  } catch (e) {
+    f7.dialog.alert(apiErrorMessage(e), 'Не удалось подтвердить')
   }
 }
 

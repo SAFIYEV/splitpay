@@ -16,6 +16,7 @@ export class RedisIoAdapter extends IoAdapter {
   constructor(
     appOrHttpServer: unknown,
     private readonly redisUrl: string,
+    private readonly corsOrigins: string[] = [],
   ) {
     super(appOrHttpServer as never);
   }
@@ -37,9 +38,19 @@ export class RedisIoAdapter extends IoAdapter {
   }
 
   createIOServer(port: number, options?: ServerOptions) {
-    const server = super.createIOServer(port, options) as ReturnType<
+    // WS CORS mirrors the HTTP policy: explicit origins from CORS_ORIGIN,
+    // open only as a local-dev fallback.
+    const merged = {
+      ...(options ?? {}),
+      cors: {
+        origin: this.corsOrigins.length > 0 ? this.corsOrigins : true,
+      },
+    } as ServerOptions;
+    const server = super.createIOServer(port, merged) as ReturnType<
       IoAdapter['createIOServer']
-    > & { adapter: (a: unknown) => void };
+    > & {
+      adapter: (a: unknown) => void;
+    };
     if (this.adapterConstructor) {
       server.adapter(this.adapterConstructor);
     }

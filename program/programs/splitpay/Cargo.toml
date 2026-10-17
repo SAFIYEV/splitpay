@@ -10,6 +10,11 @@ name = "splitpay"
 
 [features]
 default = []
+# Restricts complete_settlement to the real USDC mints (mainnet + devnet).
+# OFF by default so localnet tests can use a freely-mintable test mint.
+# ALWAYS build deploy artifacts with `--features usdc-allowlist`
+# (the CI devnet deploy does this); never deploy a default build.
+usdc-allowlist = []
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []

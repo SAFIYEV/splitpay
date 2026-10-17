@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { GroupsService } from './groups.service';
 import {
@@ -53,6 +54,7 @@ export class GroupsController {
     return this.groups.regenerateInvite(userId, groupId);
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post(':id/join')
   join(@CurrentUser('id') userId: string, @Body() dto: JoinGroupDto) {
     return this.groups.join(userId, dto.inviteCode);

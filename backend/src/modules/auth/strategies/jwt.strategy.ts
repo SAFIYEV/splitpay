@@ -8,6 +8,8 @@ export interface JwtPayload {
   sub: string;
   email?: string;
   type: 'access' | 'refresh';
+  /** Refresh-grant id stored server-side (rotation/revocation). */
+  jti?: string;
 }
 
 @Injectable()
@@ -20,6 +22,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: config.get<string>('jwt.secret')!,
+      algorithms: ['HS256'],
     });
   }
 
