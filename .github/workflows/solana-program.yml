@@ -2,14 +2,13 @@
 # Локальная сборка на Windows невозможна (Anchor/Solana toolchain — только Linux),
 # поэтому программа собирается здесь, в CI.
 #
-# Деплой в devnet: запускается вручную (workflow_dispatch) и требует секреты:
+# Деплой в devnet: запускается вручную (workflow_dispatch) и требует секрет
 #   SOLANA_DEPLOYER_KEYPAIR — base58 приватного ключа деплоера (solana-keygen new)
-#   HELIUS_API_KEY (опционально — для RPC; иначе public devnet RPC)
 name: solana-program
 
 on:
   push:
-    paths: ['program/**']
+    paths: ['program/**', '.github/workflows/solana-program.yml']
   workflow_dispatch:
     inputs:
       deploy_devnet:
@@ -33,18 +32,39 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: sbf-solana-solana
 
-      - name: Install Solana CLI
-        uses: c-50/solana-action@main
+      - name: Cache toolchain artifacts
+        uses: actions/cache@v4
         with:
-          solana-version: 2.1.21
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.avm
+            ~/.local/share/solana
+            program/target
+          key: ${{ runner.os }}-solana-2.1.21-anchor-0.31.1-${{ hashFiles('program/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-solana-2.1.21-anchor-0.31.1-
 
-      - name: Install Anchor CLI
-        uses: c-50/anchor-action@main
-        with:
-          anchor-version: 0.31.1
+      - name: Install Solana CLI (Agave 2.1.21)
+        # Официальный инсталлер Anza; включает solana-test-validator и cargo-build-sbf.
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v2.1.21/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+          solana --version
+
+      - name: Install Anchor CLI 0.31.1 (avm)
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+          export PATH="$HOME/.cargo/bin:$PATH"
+          avm install 0.31.1
+          avm use 0.31.1
+          echo "$HOME/.avm/bin" >> "$GITHUB_PATH"
+          anchor --version
+
+      - name: Install test dependencies
+        run: |
+          npm install -g yarn
+          yarn install
 
       - name: Build program
         run: anchor build
@@ -84,5 +104,5 @@ jobs:
           solana airdrop 2 || true
           anchor deploy --provider.cluster devnet
           echo "Program ID:" && solana address
-        # После деплоя: Program ID внести в env (SPLITPAY_PROGRAM_ID на Render,
-        # VITE_SPLITPAY_PROGRAM_ID для фронтенда) — см. docs/DEPLOY.md
+        # После деплоя: Program ID внести в env инстанса
+        # (SPLITPAY_PROGRAM_ID и VITE_SPLITPAY_PROGRAM_ID) — см. docs/DEPLOY.md
