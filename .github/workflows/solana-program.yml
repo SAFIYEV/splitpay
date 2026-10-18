@@ -46,9 +46,15 @@ jobs:
           restore-keys: ${{ runner.os }}-solana-2.1.21-anchor-0.31.1-
 
       - name: Install Solana CLI (Agave 2.1.21)
-        # Официальный инсталлер Anza; включает solana-test-validator и cargo-build-sbf.
+        # Прямая загрузка релизного tarball (включает solana-test-validator и
+        # cargo-build-sbf). Раскладка повторяет официальный инсталлер, чтобы
+        # работало кэширование; сам инсталлер-скрипт не используем — он падал
+        # с exit 127 в non-TTY окружении раннера.
         run: |
-          sh -c "$(curl -sSfL https://release.anza.xyz/v2.1.21/install)"
+          mkdir -p "$HOME/.local/share/solana/install"
+          curl -sSfLo /tmp/solana.tar.bz2 "https://github.com/anza-xyz/agave/releases/download/v2.1.21/solana-release-x86_64-unknown-linux-gnu.tar.bz2"
+          tar -xjf /tmp/solana.tar.bz2 -C "$HOME/.local/share/solana/install"
+          ln -sfn "$HOME/.local/share/solana/install/solana-release" "$HOME/.local/share/solana/install/active_release"
           echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
           solana --version
 
