@@ -168,7 +168,7 @@
           <div class="sp-card-sm mb-6 flex items-center gap-3 p-4">
             <span class="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white" style="background: linear-gradient(135deg, #9945ff, #14f195)">◎</span>
             <span class="flex-1 font-semibold">Solana</span>
-            <span class="text-xs" style="color: var(--color-sub)">devnet</span>
+            <span class="text-xs" style="color: var(--color-sub)">{{ SOLANA_NETWORK }}</span>
           </div>
 
           <button type="button" class="sp-btn-gradient" :disabled="!canSubmitTransfer" @click="submitTransfer">
@@ -251,6 +251,7 @@ import UserAvatar from '@/components/common/UserAvatar.vue'
 import UsdcChip from '@/components/common/UsdcChip.vue'
 import { CATEGORIES, categoryMeta } from '@/composables/categories'
 import { apiErrorMessage } from '@/services/api'
+import { SOLANA_NETWORK } from '@/services/solana'
 import { splitEqually } from '@/services/utils/split-calculator'
 import { useAuthStore } from '@/stores/auth'
 import { useExpensesStore } from '@/stores/expenses'

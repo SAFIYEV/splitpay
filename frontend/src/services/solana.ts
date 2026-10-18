@@ -11,8 +11,8 @@ import {
 // transactions happens on the backend (prepare-tx → client signs → send);
 // this module covers balance lookups, devnet airdrop and raw tx submission.
 
-export const SOLANA_RPC_URL = import.meta.env.VITE_SOLANA_RPC ?? 'https://api.devnet.solana.com'
-export const SOLANA_NETWORK = import.meta.env.VITE_SOLANA_NETWORK ?? 'devnet'
+export const SOLANA_RPC_URL = import.meta.env.VITE_SOLANA_RPC ?? 'https://api.mainnet-beta.solana.com'
+export const SOLANA_NETWORK = import.meta.env.VITE_SOLANA_NETWORK ?? 'mainnet-beta'
 
 /** USDC mint addresses (6 decimals both networks). */
 export const USDC_MINT: Record<string, string> = {

@@ -31,11 +31,11 @@ export default () => ({
     refreshTtlSeconds: parseInt(process.env.JWT_REFRESH_TTL_SECONDS ?? '604800', 10),
   },
   solana: {
-    rpcUrl: process.env.SOLANA_RPC_URL ?? 'https://api.devnet.solana.com',
-    network: process.env.SOLANA_NETWORK ?? 'devnet',
+    rpcUrl: process.env.SOLANA_RPC_URL ?? 'https://api.mainnet-beta.solana.com',
+    network: process.env.SOLANA_NETWORK ?? 'mainnet-beta',
     programId: process.env.SPLITPAY_PROGRAM_ID ?? '',
     usdcMint:
-      process.env.USDC_MINT ?? '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+      process.env.USDC_MINT ?? 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
   },
   helius: {
     apiKey: process.env.HELIUS_API_KEY ?? '',

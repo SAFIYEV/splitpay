@@ -23,7 +23,7 @@ export async function registerMockWallet(): Promise<void> {
   const account: WalletAccount = {
     address,
     publicKey,
-    chains: ['solana:devnet'],
+    chains: ['solana:mainnet'],
     features: ['standard:connect', 'standard:signMessage'],
     label: 'Dev Mock Account',
   }
@@ -35,7 +35,7 @@ export async function registerMockWallet(): Promise<void> {
     version: '1.0.0',
     name: 'DevMock Wallet',
     icon: ICON,
-    chains: ['solana:devnet'],
+    chains: ['solana:mainnet'],
     accounts,
     features: {
       'standard:connect': {

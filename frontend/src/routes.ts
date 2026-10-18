@@ -147,7 +147,7 @@ const routes: Router.RouteParameters[] = [
     options: {
       props: {
         title: 'О приложении',
-        text: 'SplitPay · расчёты в USDC на Solana · версия 0.1 (devnet)',
+        text: 'SplitPay · расчёты в USDC на Solana · версия 0.1 (mainnet)',
         icon: 'info_circle',
       },
     },

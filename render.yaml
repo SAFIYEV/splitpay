@@ -34,9 +34,9 @@ services:
       - key: JWT_REFRESH_EXPIRES_IN
         value: 7d
       - key: SOLANA_RPC_URL
-        value: https://api.devnet.solana.com
+        value: https://api.mainnet-beta.solana.com
       - key: SOLANA_NETWORK
-        value: devnet
+        value: mainnet-beta
       - key: SPLITPAY_PROGRAM_ID
         sync: false
       - key: HELIUS_API_KEY
@@ -44,7 +44,7 @@ services:
       - key: HELIUS_WEBHOOK_SECRET
         sync: false
       - key: USDC_MINT
-        value: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU # devnet USDC
+        value: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v # mainnet USDC
       # CORS — URL фронтенда на Render
       - key: CORS_ORIGIN
         sync: false
@@ -68,9 +68,9 @@ services:
       - key: VITE_WS_URL
         sync: false
       - key: VITE_SOLANA_RPC
-        value: https://api.devnet.solana.com
+        value: https://api.mainnet-beta.solana.com
       - key: VITE_SOLANA_NETWORK
-        value: devnet
+        value: mainnet-beta
       - key: VITE_SPLITPAY_PROGRAM_ID
         sync: false
 
